@@ -254,8 +254,20 @@ export async function createEvidenceDirectory(root: string, runId: string) {
   }
   directory = resolve(directory, randomUUID());
   await mkdir(directory, { mode: 0o700 });
-  const identity = await lstat(directory);
-  return { directory, identity };
+  // Keep the original directory open until collection finishes. In particular,
+  // Linux may recycle a deleted directory's inode immediately if only its stat
+  // was retained, making a newly created replacement look like the original.
+  const handle = await open(
+    directory,
+    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+  );
+  try {
+    const identity = await handle.stat();
+    return { directory, identity, handle };
+  } catch (error) {
+    await handle.close();
+    throw error;
+  }
 }
 
 export async function readJunitEvidence(
@@ -275,7 +287,9 @@ export async function readJunitEvidence(
     await normalDirectory(current);
   }
   const identity = await lstat(evidence.directory);
+  const original = await evidence.handle.stat();
   if (
+    original.nlink === 0 ||
     identity.dev !== evidence.identity.dev ||
     identity.ino !== evidence.identity.ino
   )

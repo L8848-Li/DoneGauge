@@ -116,3 +116,8 @@ actual raw XML and reports. They are not distributed as canned acceptance eviden
 The CI matrix now installs pytest explicitly on Ubuntu and macOS. Historical CI
 results above do not certify this increment; inspect its own commit workflow.
 JUnit adds traceability and does not establish test honesty or coverage.
+
+The first Ubuntu CI run caught immediate inode reuse after an evidence directory
+was deleted and recreated. Collection now holds the original directory open
+through execution and parsing, preventing inode recycling from disguising that
+replacement. The existing replacement regression remains enabled on both systems.
