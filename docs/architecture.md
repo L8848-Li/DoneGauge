@@ -9,7 +9,9 @@ src/
     config.ts       JSON Schema validation, path boundaries, config digest
     git.ts          Read-only Git baseline and working-tree snapshot
     runner.ts       Argument-array processes, deadlines, cancellation, output cap
-    evaluator.ts    Deterministic contract evaluation
+    evaluator.ts    Deterministic command contract evaluation
+    junit.ts        Bounded SAX parsing and fresh report file collection
+    junit-evaluator.ts Exact target selection and JUnit status evaluation
     check.ts        Preflight, sequential execution, evidence and final status
     types.ts        Versioned config and report contracts
   reporters/        Terminal, Markdown, JSON, exclusive report persistence
@@ -87,3 +89,21 @@ paths. It uses the default DSH tool card; no custom UI or model is required.
 
 Future adapters should reuse the public core API and keep their authorization and
 presentation concerns at the edge. V0.1 does not implement other agent adapters.
+
+## JUnit evidence
+
+JUnit checks allocate a private `.donegauge/evidence/<run-id>/<check-id>/`
+directory only after execution is authorized. Only the fixed `{evidenceDir}`
+placeholder is expanded into argv. A single normal XML file under that directory
+is read with a size bound and no symlinks/hard links; directory identity and
+file metadata are checked. Raw XML stays there and its SHA-256, process evidence
+id, run/config identity, and Git snapshot accompany normalized leaf test cases.
+These checks do not provide atomic isolation against malicious concurrent writes
+or prove that test code did not copy or fabricate XML.
+
+The SAX parser never loads resources, rejects DTDs and processing instructions,
+and accepts only XML built-in/numeric entities. It limits bytes, depth, and cases.
+Suite counters are checked against parsed records; suites themselves are never
+counted as assertions. Exact name/class selection and separate process/test
+results prevent zero-test, skipped, duplicate-name, and nonzero-run false passes.
+See [configuration](configuration.md#junit-checks) for status precedence.

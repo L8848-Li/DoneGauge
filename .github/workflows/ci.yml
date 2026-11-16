@@ -23,7 +23,10 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - run: python3 --version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install -r tests/requirements.txt
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm run test:package

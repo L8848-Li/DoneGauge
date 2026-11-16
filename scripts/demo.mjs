@@ -11,11 +11,12 @@ const example = process.argv[2] ?? 'node-registration';
 const flags = process.argv.slice(3);
 if (
   !['node-registration', 'python-cart'].includes(example) ||
-  flags.some((flag) => !['--mixed', '--run'].includes(flag)) ||
+  flags.some((flag) => !['--mixed', '--junit', '--run'].includes(flag)) ||
+  (flags.includes('--mixed') && flags.includes('--junit')) ||
   (example !== 'node-registration' && flags.includes('--mixed'))
 ) {
   throw new Error(
-    'Use: node scripts/demo.mjs node-registration [--mixed] [--run], or python-cart [--run].',
+    'Use: node scripts/demo.mjs node-registration [--mixed|--junit] [--run], or python-cart [--junit] [--run].',
   );
 }
 const project = await realpath(
@@ -30,6 +31,7 @@ const args = [
   '--cwd',
   project,
   ...(flags.includes('--mixed') ? ['--config', 'donegauge.mixed.json'] : []),
+  ...(flags.includes('--junit') ? ['--config', 'donegauge.junit.json'] : []),
 ];
 const quote = (value) => `'${value.replace(/'/g, "'\\''")}'`;
 console.log(`Prepared a disposable example Git repository: ${project}`);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Context } from '@deepseek-ai/cordis';
@@ -10,8 +10,9 @@ import * as native from '@deepseek-ai/dsh-tool-executor-native';
 import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit';
 import * as adapter from '../src/adapters/dsh/index.js';
 import { loadConfig } from '../src/core/config.js';
-import type { AcceptanceReport } from '../src/core/types.js';
+import type { AcceptanceConfig, AcceptanceReport } from '../src/core/types.js';
 import { configWith, newRepo, saveConfig } from './helpers.js';
+import { renderMarkdown, renderTerminal } from '../src/reporters/index.js';
 
 async function host(
   t: TestContext,
@@ -154,4 +155,82 @@ test('disposing plugin removes tool registration from official registry', async 
   for (const fiber of ctx.registry.get(adapter)?.fibers ?? [])
     await fiber.dispose();
   assert.equal(ctx.tools.get('donegauge_check'), undefined);
+});
+
+test('DSH JUnit results agree with disk JSON, Markdown and terminal for all four statuses', async (t) => {
+  const root = await newRepo(t);
+  await writeFile(
+    join(root, 'target.test.mjs'),
+    `import {test} from 'node:test'; import assert from 'node:assert/strict'; test('passes',()=>assert.ok(true));test('fails',()=>assert.fail('real failure'));test.skip('skips',()=>{});`,
+  );
+  const config: AcceptanceConfig = {
+    version: 1,
+    task: 'JUnit through DSH',
+    criteria: ['passes', 'fails', 'skips', 'error'].map((name) => ({
+      id: name,
+      description: `Verify ${name}`,
+      check: {
+        kind: 'junit',
+        command:
+          name === 'error'
+            ? ['donegauge-missing-junit-executable']
+            : [
+                process.execPath,
+                '--test',
+                `--test-name-pattern=^${name}$`,
+                '--test-reporter=junit',
+                '--test-reporter-destination={evidenceDir}/junit.xml',
+                'target.test.mjs',
+              ],
+        junit: { file: '{evidenceDir}/junit.xml', tests: [{ name }] },
+      },
+    })),
+  };
+  await saveConfig(root, config);
+  const ctx = await host(t, {
+    root,
+    approvedConfigSha256: (await loadConfig(root)).sha256,
+  });
+  const result = await call(ctx);
+  assert.equal(result.isError, false, JSON.stringify(result));
+  if (result.isError) return;
+  const value = result.value as unknown as {
+    summary: object;
+    reports: { json: string };
+    criteria: {
+      status: string;
+      evidenceId: string;
+      targetTests: number;
+      executedTargetTests: number;
+      testEvidencePath: string;
+      targetTestResults: { name: string; outcome: string }[];
+    }[];
+  };
+  const report = JSON.parse(
+    await readFile(join(root, value.reports.json), 'utf8'),
+  ) as AcceptanceReport;
+  assert.deepEqual(value.summary, {
+    PASS: 1,
+    FAIL: 1,
+    UNVERIFIED: 1,
+    ERROR: 1,
+  });
+  for (const [index, criterion] of report.criteria.entries()) {
+    const actual = value.criteria[index]!;
+    assert.equal(actual.status, criterion.status);
+    assert.equal(actual.evidenceId, criterion.evidence?.id);
+    assert.equal(actual.targetTests, criterion.testEvidence?.counts.targets);
+    assert.equal(
+      actual.executedTargetTests,
+      criterion.testEvidence?.counts.executedTargets,
+    );
+    assert.equal(actual.testEvidencePath, criterion.testEvidence?.source.path);
+    if (criterion.status !== 'ERROR')
+      assert.equal(actual.targetTestResults[0]?.name, criterion.id);
+    for (const output of [renderMarkdown(report), renderTerminal(report)]) {
+      assert.ok(output.includes(actual.evidenceId));
+      assert.ok(output.includes(actual.testEvidencePath));
+      assert.ok(output.includes(actual.status));
+    }
+  }
 });

@@ -130,6 +130,8 @@ Final status: REVIEW REQUIRED
 | UNVERIFIED | 没有检查、没有执行，或必要输出可能因截断而丢失。         |
 | ERROR      | 启动失败、超时、中断等执行异常，不能据此证明功能有缺陷。 |
 
+JUnit 的 PASS 还要求本次报告完整、目标测试唯一匹配且实际执行并通过；缺失、跳过、歧义或文件级外壳为 UNVERIFIED。详见 [JUnit 判定规则](docs/configuration.md#junit-checks)。
+
 报告保存在 `.donegauge/runs/<运行编号>/report.md` 和 `report.json`。建议在 `.gitignore` 中加入 `.donegauge/`。此保留目录不作为未跟踪代码变更采集，但其中已跟踪文件仍被检查。
 
 退出码：0 为全部通过且工作区稳定；1 为需要复核；2 为执行或配置异常。`--json` 的标准输出只有 JSON，报告路径写入标准错误。报告保留原始日志，可能包含私有代码或敏感内容；只存本地，不自动上传或脱敏。
@@ -147,7 +149,7 @@ npx --no-install donegauge config-hash
 ## 已知限制
 
 - 检查是否足以证明验收条件，由用户负责。退出码 0 仅证明命令约定满足；建议添加明确输出或测试数量预期，避免把空跑当作充分验证。
-- 尚无框架结果解析、自动发现或生成测试、失败到源码定位和评分。
+- JUnit 支持精确名称和可选类名，每个条件独立命令；尚无自动发现或生成测试、失败到源码定位、重试编排和评分。
 - 检查顺序执行；前后 Git 指纹不是原子快照或签名证明。忽略文件及子模块内部未提交内容不被完整追踪。
 - 默认每条命令保留 64 KiB 输出，Git 差异展示上限 256 KiB；文件元数据超限会停止采集，不会静默漏掉文件。
 - 重命名按删除和新增显示；不自动拉取远程仓库或选择任务基准。
@@ -158,6 +160,7 @@ npx --no-install donegauge config-hash
 ## 开发与路线图
 
 ```sh
+python3 -m pip install -r tests/requirements.txt # 建议使用虚拟环境
 npm run check
 npm run test:package
 npm run test:dsh-host  # 可选，需要已安装的兼容 DSH
@@ -165,7 +168,7 @@ npm run test:dsh-host  # 可选，需要已安装的兼容 DSH
 
 [贡献指南](CONTRIBUTING.md) · [架构](docs/architecture.md) · [实际验证记录](docs/validation.md)
 
-最优先的下一项功能是 **JUnit 结果检查器**：要求真正执行具体测试，将验收条件关联到测试名称，进一步识别空跑和跳过。后续保留 V0.2 Agent 适配器、V0.3 框架检查器、V0.4 证据追溯与质量门禁、V1.0 交付验收协议的空间，本轮不提前实现。
+**JUnit 结果检查器**已实现：将验收条件关联到本次运行的精确测试名称，识别空跑、跳过、重名和文件级外壳记录。配置与边界见 [JUnit 配置](docs/configuration.md#junit-checks)。后续保留 V0.2 Agent 适配器、V0.3 框架检查器、V0.4 证据追溯与质量门禁、V1.0 交付验收协议的空间，本轮不提前实现。
 
 ## 许可证
 

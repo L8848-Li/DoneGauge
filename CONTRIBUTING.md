@@ -12,12 +12,16 @@ The optional DSH integration requires Node.js 24.9+ and DSH 0.2.2-rc.3.
 ```sh
 npm ci --ignore-scripts
 npm run build
+python3 -m pip install -r tests/requirements.txt # use a virtual environment
 npm run check
 npm run test:package
 ```
 
 `npm run format` formats source and documentation. `npm run lint` and
 `npm run typecheck` can run independently. Tests use Node's built-in test runner.
+JUnit integration tests require pytest (pinned in `tests/requirements.txt`); set
+`DONEGAUGE_PYTHON` to select an existing virtual environment interpreter. Missing
+pytest fails these tests rather than silently skipping acceptance coverage.
 They create disposable Git repositories; fixture commits never touch your working
 repository. All acceptance checks execute real local processes.
 

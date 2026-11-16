@@ -101,8 +101,27 @@ try {
     ).runId,
     report.runId,
   );
+  const junitChecked = await execute(
+    bin,
+    ['check', '--config', 'donegauge.junit.json', '--allow-run', '--json'],
+    {
+      cwd: consumer,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
+  const junitReport = JSON.parse(junitChecked.stdout);
+  assert.equal(junitReport.finalStatus, 'VERIFIED');
+  assert.equal(junitReport.summary.PASS, 3);
+  for (const criterion of junitReport.criteria) {
+    assert.equal(criterion.testEvidence.counts.executedTargets, 1);
+    assert.equal(criterion.testEvidence.executionId, criterion.evidence.id);
+    assert.ok(
+      (await readFile(join(consumer, criterion.testEvidence.source.path)))
+        .length > 0,
+    );
+  }
   console.log(
-    `Package install smoke passed: installed executable 0.1.0, no DSH dependency, 3 real acceptance checks, JSON and Markdown reports. ${metadata.files.length} files, ${metadata.size} packed bytes.`,
+    `Package install smoke passed: installed executable 0.1.0, no DSH dependency, 3 command + 3 JUnit real acceptance checks, JSON and Markdown reports. ${metadata.files.length} files, ${metadata.size} packed bytes.`,
   );
 } finally {
   await rm(temporary, { recursive: true, force: true });

@@ -3,11 +3,21 @@ import { readFile, stat } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { loadConfig, projectPath, sha256 } from './config.js';
-import { DoneGaugeError } from './errors.js';
+import { DoneGaugeError, errorMessage } from './errors.js';
 import { evaluate } from './evaluator.js';
 import { collectChanges, repositoryRoot } from './git.js';
 import { runCommand } from './runner.js';
-import type { AcceptanceReport, CriterionResult } from './types.js';
+import {
+  createEvidenceDirectory,
+  parseJunit,
+  readJunitEvidence,
+} from './junit.js';
+import { evaluateJunit } from './junit-evaluator.js';
+import type {
+  AcceptanceReport,
+  CriterionResult,
+  TestEvidence,
+} from './types.js';
 
 export interface CheckOptions {
   cwd?: string;
@@ -23,6 +33,7 @@ export async function checkAcceptance(
 ): Promise<AcceptanceReport> {
   const start = performance.now();
   const startedAt = new Date().toISOString();
+  const runId = randomUUID();
   const root = await repositoryRoot(
     resolve(options.cwd ?? process.cwd()),
     options.signal,
@@ -70,7 +81,16 @@ export async function checkAcceptance(
       });
       continue;
     }
-    const evidence = await runCommand(check.command, cwd, {
+    const junitDirectory =
+      check.kind === 'junit'
+        ? await createEvidenceDirectory(root, runId)
+        : null;
+    const command = junitDirectory
+      ? check.command.map((arg) =>
+          arg.replaceAll('{evidenceDir}', junitDirectory.directory),
+        )
+      : check.command;
+    const evidence = await runCommand(command, cwd, {
       displayCwd: relative(root, cwd) || '.',
       ...(check.timeoutMs !== undefined ? { timeoutMs: check.timeoutMs } : {}),
       ...(check.maxOutputBytes !== undefined
@@ -79,12 +99,98 @@ export async function checkAcceptance(
       ...(options.signal ? { signal: options.signal } : {}),
     });
     options.signal?.throwIfAborted();
+    let testEvidence: TestEvidence | undefined;
+    if (check.kind === 'junit' && junitDirectory) {
+      testEvidence = {
+        parserVersion: 'donegauge-junit-1',
+        runId,
+        executionId: evidence.id,
+        configSha256: loaded.sha256,
+        git: {
+          baseCommit: changes.baseCommit,
+          headCommit: changes.headCommit,
+          fingerprint: changes.fingerprint,
+        },
+        source: {
+          path: relative(
+            root,
+            check.junit.file.replaceAll(
+              '{evidenceDir}',
+              junitDirectory.directory,
+            ),
+          ),
+          sha256: null,
+          bytes: null,
+        },
+        cases: [],
+        selections: check.junit.tests.map((selector) => ({
+          selector,
+          matches: [],
+        })),
+        counts: {
+          total: 0,
+          executed: 0,
+          targets: check.junit.tests.length,
+          matched: 0,
+          executedTargets: 0,
+        },
+        problems: [],
+        error: null,
+      };
+      try {
+        const source = await readJunitEvidence(
+          root,
+          junitDirectory,
+          check.junit.file,
+        );
+        testEvidence.source = {
+          path: source.path,
+          sha256: source.sha256,
+          bytes: source.bytes,
+        };
+        const parsed = parseJunit(
+          new TextDecoder('utf-8', { fatal: true }).decode(source.data),
+        );
+        testEvidence.cases = parsed.cases;
+        testEvidence.problems = parsed.problems;
+        testEvidence.selections = check.junit.tests.map((selector) => ({
+          selector,
+          matches: parsed.cases.flatMap((item, index) =>
+            item.name === selector.name &&
+            (selector.className === undefined ||
+              item.className === selector.className)
+              ? [index]
+              : [],
+          ),
+        }));
+        const matched = new Set(
+          testEvidence.selections.flatMap((s) =>
+            s.matches.length === 1 ? s.matches : [],
+          ),
+        );
+        const executed = (index: number): boolean =>
+          ['passed', 'failed', 'error'].includes(parsed.cases[index]!.outcome);
+        testEvidence.counts = {
+          total: parsed.cases.length,
+          executed: parsed.cases.filter((_, index) => executed(index)).length,
+          targets: check.junit.tests.length,
+          matched: testEvidence.selections.filter((s) => s.matches.length === 1)
+            .length,
+          executedTargets: [...matched].filter(executed).length,
+        };
+      } catch (error) {
+        testEvidence.error = `Cannot collect complete JUnit evidence: ${errorMessage(error)}`;
+      }
+    }
     criteria.push({
       id: criterion.id,
       description: criterion.description,
       check,
       evidence,
-      ...evaluate(check, evidence),
+      ...(testEvidence ? { testEvidence } : {}),
+      ...(check.kind === 'junit'
+        ? evaluateJunit(check, evidence, testEvidence!)
+        : evaluate(check, evidence)),
     });
   }
   const after = await collectChanges(root, base, options.signal);
@@ -121,7 +227,7 @@ export async function checkAcceptance(
   return {
     reportVersion: 1,
     toolVersion: '0.1.0',
-    runId: randomUUID(),
+    runId,
     task: loaded.config.task,
     config: { path: loaded.path, sha256: loaded.sha256 },
     startedAt,

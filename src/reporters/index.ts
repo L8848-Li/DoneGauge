@@ -48,6 +48,26 @@ export function renderTerminal(report: AcceptanceReport): string {
       if (result.status !== 'PASS' && log)
         lines.push(`  Log excerpt: ${log.slice(0, 1000)}`);
     }
+    if (result.testEvidence) {
+      const tests = result.testEvidence;
+      lines.push(
+        `  JUnit: ${tests.counts.executedTargets}/${tests.counts.targets} target tests executed; ${tests.counts.total} total cases`,
+        `  XML: ${tests.source.path}; SHA-256: ${tests.source.sha256 ?? 'unavailable'}`,
+      );
+      for (const selection of tests.selections) {
+        const item =
+          selection.matches.length === 1
+            ? tests.cases[selection.matches[0]!]
+            : undefined;
+        lines.push(
+          `    ${selection.selector.name}${selection.selector.className ? ` (${selection.selector.className})` : ''}: ${item?.outcome ?? (selection.matches.length ? 'ambiguous' : 'missing')}`,
+        );
+        for (const detail of item?.details ?? [])
+          lines.push(`      ${detail.message} ${detail.text}`.slice(0, 1000));
+      }
+      for (const problem of tests.problems)
+        lines.push(`    Review: ${problem}`);
+    }
     lines.push('');
   }
   lines.push(
@@ -131,7 +151,14 @@ export function renderMarkdown(report: AcceptanceReport): string {
       '',
       '**Configured contract**',
       '',
-      code(JSON.stringify(result.check?.expect ?? { exitCode: 0 }), 'json'),
+      code(
+        JSON.stringify(
+          result.check?.kind === 'junit'
+            ? result.check.junit
+            : (result.check?.expect ?? { exitCode: 0 }),
+        ),
+        'json',
+      ),
       '',
       '**stdout**',
       '',
@@ -143,6 +170,49 @@ export function renderMarkdown(report: AcceptanceReport): string {
       '',
     );
     if (e.error) lines.push(`Execution error: ${md(e.error)}`, '');
+    if (result.testEvidence) {
+      const tests = result.testEvidence;
+      lines.push(
+        '**JUnit target tests**',
+        '',
+        `Target tests executed: ${tests.counts.executedTargets}/${tests.counts.targets}; total cases: ${tests.counts.total}.`,
+        '',
+        `Raw XML: ${md(tests.source.path)}  `,
+        `SHA-256: ${tests.source.sha256 ?? 'unavailable'}  `,
+        `Execution ID: ${tests.executionId}`,
+        '',
+        '| Target | Class | Matches | Outcome | Test location |',
+        '| --- | --- | --- | --- | --- |',
+      );
+      for (const selection of tests.selections) {
+        const item =
+          selection.matches.length === 1
+            ? tests.cases[selection.matches[0]!]
+            : undefined;
+        lines.push(
+          `| ${md(selection.selector.name)} | ${md(selection.selector.className ?? '')} | ${selection.matches.length} | ${item?.outcome ?? (selection.matches.length ? 'ambiguous' : 'missing')} | ${md(item?.file ?? '')}${item?.line !== null && item?.line !== undefined ? `:${item.line}` : ''} |`,
+        );
+      }
+      lines.push(
+        '',
+        'Locations identify test files; failure text is not a verified product root cause.',
+        '',
+      );
+      for (const item of tests.cases.filter((c) => c.details.length)) {
+        lines.push(
+          `Test: ${md(item.name)} (XML line ${item.reportLine})`,
+          '',
+          code(
+            item.details
+              .map((d) => `${d.kind}: ${d.type ?? ''} ${d.message}\n${d.text}`)
+              .join('\n'),
+            'text',
+          ),
+          '',
+        );
+      }
+      for (const problem of tests.problems) lines.push(md(problem), '');
+    }
   }
   lines.push(
     '## Summary',

@@ -17,6 +17,15 @@ test('valid config supports a command contract and optional missing evidence', (
   );
 });
 
+test('explicit command kind preserves the existing exit/output contract', () => {
+  const config = configWith(['node', '--test']);
+  Object.assign(config.criteria[0]!.check!, {
+    kind: 'command',
+    expect: { exitCode: 1, stdoutIncludes: 'expected failure' },
+  });
+  assert.deepEqual(parseConfig(JSON.stringify(config)), config);
+});
+
 const bad: [string, unknown, RegExp][] = [
   ['missing task', { version: 1, criteria: [] }, /task/],
   ['wrong version', { ...configWith(), version: 2 }, /version/],

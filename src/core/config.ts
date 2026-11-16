@@ -61,6 +61,20 @@ export function parseConfig(text: string): AcceptanceConfig {
       );
     }
     ids.add(criterion.id);
+    if (criterion.check?.kind === 'junit') {
+      const file = criterion.check.junit.file;
+      const parts = file.slice('{evidenceDir}/'.length).split('/');
+      if (
+        parts.some(
+          (part) =>
+            !part || part === '.' || part === '..' || part.includes('\\'),
+        )
+      )
+        throw new DoneGaugeError(
+          `${criterion.id}: junit.file must be a normal XML path inside {evidenceDir}; traversal and backslashes are not allowed.`,
+          'CONFIG',
+        );
+    }
     if (criterion.check && !criterion.check.command[0]?.trim()) {
       throw new DoneGaugeError(
         `${criterion.id}: check.command needs an executable as its first element, for example ["node", "--test"].`,

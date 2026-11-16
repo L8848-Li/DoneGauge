@@ -81,3 +81,38 @@ later runs; do not infer a new commit's status from this historical result.
 PASS certifies the configured command contract. It is not proof of comprehensive
 coverage, test honesty, or production correctness. See [architecture](architecture.md)
 for process permissions and snapshot limitations.
+
+## Issue #1: JUnit checker (2026-11-16)
+
+Local verification uses Node.js 24.16.0, Python 3.12.13, and pytest 9.2.0 in
+a disposable virtual environment. Install the pinned test dependency first:
+
+```sh
+python3 -m venv /tmp/donegauge-pytest
+/tmp/donegauge-pytest/bin/python -m pip install -r tests/requirements.txt
+DONEGAUGE_PYTHON=/tmp/donegauge-pytest/bin/python npm run check
+npm run test:package
+node scripts/demo.mjs node-registration --junit --run
+# Activate that virtual environment before the Python demo:
+node scripts/demo.mjs python-cart --junit --run
+```
+
+The Node JUnit demo produced 3 PASS and the pytest cart demo 2 PASS, both VERIFIED.
+The packed installation also ran 3 existing command checks and 3 JUnit checks
+through its actual installed executable. The regression suite runs real Node and
+pytest pass/failure/skip cases, Node todo, empty pytest collection (exit 5),
+unmatched filters (including Node file wrappers), duplicate/parameterized names,
+setup errors, and passing targets in a failed run. Separate synthetic XML tests
+cover malformed/oversized reports, invalid UTF-8, DTD/entities, counts, limits,
+class selection, minimum counts, retries, and hostile filesystem boundaries.
+A timed-out process that wrote complete-looking XML remains ERROR; subsequent
+runs cannot reuse its directory. Official DSH runtime tests compare all four
+statuses, target counts, XML paths and execution ids with the saved JSON and
+rendered terminal/Markdown output. Existing command regressions remain covered.
+
+Demo console records are retained locally under ignored
+`.donegauge/validation/issue-1/`; they identify disposable projects containing the
+actual raw XML and reports. They are not distributed as canned acceptance evidence.
+The CI matrix now installs pytest explicitly on Ubuntu and macOS. Historical CI
+results above do not certify this increment; inspect its own commit workflow.
+JUnit adds traceability and does not establish test honesty or coverage.

@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "task": "Verify exact cart calculations through pytest JUnit",
+  "criteria": [
+    {
+      "id": "test_exact_total",
+      "description": "test exact total",
+      "check": {
+        "kind": "junit",
+        "command": [
+          "python3",
+          "-B",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-q",
+          "test_cart.py::CartTests::test_exact_total",
+          "--junitxml={evidenceDir}/junit.xml"
+        ],
+        "junit": {
+          "file": "{evidenceDir}/junit.xml",
+          "tests": [
+            {
+              "name": "test_exact_total",
+              "className": "test_cart.CartTests"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "test_negative_price",
+      "description": "test negative price",
+      "check": {
+        "kind": "junit",
+        "command": [
+          "python3",
+          "-B",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-q",
+          "test_cart.py::CartTests::test_negative_price",
+          "--junitxml={evidenceDir}/junit.xml"
+        ],
+        "junit": {
+          "file": "{evidenceDir}/junit.xml",
+          "tests": [
+            {
+              "name": "test_negative_price",
+              "className": "test_cart.CartTests"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

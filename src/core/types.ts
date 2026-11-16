@@ -1,6 +1,7 @@
 export type AcceptanceStatus = 'PASS' | 'FAIL' | 'UNVERIFIED' | 'ERROR';
 
-export interface Check {
+export interface CommandCheck {
+  kind?: 'command';
   command: string[];
   cwd?: string;
   timeoutMs?: number;
@@ -10,6 +11,60 @@ export interface Check {
     stdoutIncludes?: string;
     stderrIncludes?: string;
   };
+}
+
+export interface TestSelector {
+  name: string;
+  className?: string;
+}
+
+export interface JunitCheck extends Omit<CommandCheck, 'kind' | 'expect'> {
+  kind: 'junit';
+  expect?: never;
+  junit: { file: string; tests: TestSelector[]; minExecuted?: number };
+}
+
+export type Check = CommandCheck | JunitCheck;
+
+export interface TestCaseEvidence {
+  name: string;
+  className: string | null;
+  suite: string[];
+  file: string | null;
+  line: number | null;
+  durationMs: number | null;
+  outcome: 'passed' | 'failed' | 'error' | 'skipped' | 'unverified';
+  details: {
+    kind: string;
+    type: string | null;
+    message: string;
+    text: string;
+  }[];
+  reportLine: number;
+}
+
+export interface TestEvidence {
+  parserVersion: 'donegauge-junit-1';
+  runId: string;
+  executionId: string;
+  configSha256: string;
+  git: {
+    baseCommit: string | null;
+    headCommit: string | null;
+    fingerprint: string;
+  };
+  source: { path: string; sha256: string | null; bytes: number | null };
+  cases: TestCaseEvidence[];
+  selections: { selector: TestSelector; matches: number[] }[];
+  counts: {
+    total: number;
+    executed: number;
+    targets: number;
+    matched: number;
+    executedTargets: number;
+  };
+  problems: string[];
+  error: string | null;
 }
 
 export interface Criterion {
@@ -71,6 +126,7 @@ export interface CriterionResult {
   status: AcceptanceStatus;
   reason: string;
   evidence: ExecutionEvidence | null;
+  testEvidence?: TestEvidence;
 }
 
 export interface AcceptanceReport {

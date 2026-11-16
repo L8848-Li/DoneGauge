@@ -17,6 +17,8 @@ to real commands, Git changes, and inspectable test evidence.
   and unstaged work. It never modifies your Git history or index.
 - Reads one `donegauge.json` with the task, acceptance criteria, and explicit check
   commands; validates it with a shipped JSON Schema.
+- Links exact named tests to fresh JUnit XML from Node, pytest, and compatible
+  runners; missing, skipped, ambiguous, and file-wrapper cases cannot PASS.
 - Runs reviewed local commands without an implicit shell, with deadlines,
   cancellation, and bounded logs.
 - Separates **PASS**, **FAIL**, **UNVERIFIED**, and **ERROR**. Every passing criterion
@@ -171,9 +173,13 @@ private code and logs; they stay local and are not automatically redacted.
 | Status     | Interpretation                                                                                   |
 | ---------- | ------------------------------------------------------------------------------------------------ |
 | PASS       | The configured check met its exit/output contract.                                               |
-| FAIL       | The completed check contradicted that contract.                                                  |
+| FAIL       | The completed command contradicted its contract, or a selected JUnit test failed.                |
 | UNVERIFIED | No sufficient evidence: missing check, preview, or required output lost to truncation.           |
 | ERROR      | Execution failed to start, timed out, was interrupted, or otherwise failed to complete normally. |
+
+For JUnit, PASS also requires uniquely selected executed tests and complete fresh
+XML; missing, skipped, ambiguous, or file-wrapper targets remain UNVERIFIED. See
+[JUnit status precedence](docs/configuration.md#junit-checks).
 
 Exit codes: **0** all criteria verified against a stable working tree; **1** review
 required; **2** configuration, Git, report-writing, or check execution errors.
@@ -200,8 +206,9 @@ model-driven Desktop UI test. It never edits your global DSH configuration.
 - You choose which checks establish each condition. Exit code 0 alone proves
   only the declared process contract. It cannot prove test quality or coverage.
   Prefer specific output/test-count expectations to detect empty test runs.
-- Generic commands only: no JUnit/framework result parser or automatic test
-  discovery, test generation, failure-to-source mapping, or score.
+- JUnit supports exact names and optional class names, one report and command per
+  criterion. No automatic test discovery/generation, failure-to-source mapping,
+  cross-criterion cache, retry orchestration, or score.
 - Tests run sequentially and can modify local files. Before/after fingerprints
   flag observed changes but are not atomic snapshots or signed attestations.
   Ignored files and dirty submodule contents are not fully fingerprinted.
@@ -218,6 +225,7 @@ model-driven Desktop UI test. It never edits your global DSH configuration.
 ## Development and roadmap
 
 ```sh
+python3 -m pip install -r tests/requirements.txt # preferably in a virtual environment
 npm run check
 npm run test:package
 npm run test:dsh-host  # optional: requires an installed compatible DSH
@@ -225,8 +233,8 @@ npm run test:dsh-host  # optional: requires an installed compatible DSH
 
 See [CONTRIBUTING](CONTRIBUTING.md) and the [actual validation record](docs/validation.md).
 
-The next useful addition is a **JUnit result checker** that requires real executed
-test cases and links each criterion to named assertions. Then: V0.2 Codex/Claude
+The **JUnit result checker** now links criteria to named tests from fresh runs;
+see [JUnit configuration](docs/configuration.md#junit-checks). Next: V0.2 Codex/Claude
 Code adapters; V0.3 framework checkers; V0.4 evidence tracing and quality gates;
 V1.0 acceptance handoff protocol. These are future plans, not shipped features.
 

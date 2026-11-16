@@ -1,7 +1,11 @@
-import type { AcceptanceStatus, Check, ExecutionEvidence } from './types.js';
+import type {
+  AcceptanceStatus,
+  CommandCheck,
+  ExecutionEvidence,
+} from './types.js';
 
 export function evaluate(
-  check: Check,
+  check: CommandCheck,
   evidence: ExecutionEvidence,
 ): { status: AcceptanceStatus; reason: string } {
   if (evidence.state !== 'exited' || evidence.exitCode === null) {

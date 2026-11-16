@@ -85,6 +85,23 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
                   },
                   reason: { type: 'string', required: true },
                   evidenceId: { type: 'string', required: true },
+                  targetTests: { type: 'integer', required: true },
+                  executedTargetTests: { type: 'integer', required: true },
+                  testEvidencePath: { type: 'string', required: true },
+                  targetTestResults: {
+                    type: 'array',
+                    required: true,
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        name: { type: 'string', required: true },
+                        className: { type: 'string', required: true },
+                        matches: { type: 'integer', required: true },
+                        outcome: { type: 'string', required: true },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -147,13 +164,29 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
               status: c.status,
               reason: c.reason,
               evidenceId: c.evidence?.id ?? '',
+              targetTests: c.testEvidence?.counts.targets ?? 0,
+              executedTargetTests: c.testEvidence?.counts.executedTargets ?? 0,
+              testEvidencePath: c.testEvidence?.source.path ?? '',
+              targetTestResults:
+                c.testEvidence?.selections.map((s) => ({
+                  name: s.selector.name,
+                  className: s.selector.className ?? '',
+                  matches: s.matches.length,
+                  outcome:
+                    s.matches.length === 1
+                      ? c.testEvidence!.cases[s.matches[0]!]!.outcome
+                      : s.matches.length
+                        ? 'ambiguous'
+                        : 'missing',
+                })) ?? [],
             })),
             reports,
             text: [
               `DoneGauge: ${report.task}`,
               `${report.summary.PASS} verified, ${report.summary.FAIL} failed, ${report.summary.UNVERIFIED} unverified, ${report.summary.ERROR} errors`,
               ...report.criteria.map(
-                (c) => `[${c.status}] ${c.id}: ${c.reason}`,
+                (c) =>
+                  `[${c.status}] ${c.id}: ${c.reason}${c.testEvidence ? ` Targets executed: ${c.testEvidence.counts.executedTargets}/${c.testEvidence.counts.targets}; evidence: ${c.evidence?.id}; XML: ${c.testEvidence.source.path}; tests: ${c.testEvidence.selections.map((s) => `${s.selector.name}: ${s.matches.length === 1 ? c.testEvidence!.cases[s.matches[0]!]!.outcome : s.matches.length ? 'ambiguous' : 'missing'}`).join(', ')}` : ''}`,
               ),
               ...report.warnings,
               `Final status: ${report.finalStatus}`,
