@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "task": "Implement user registration",
+  "criteria": [
+    {
+      "id": "duplicate-email",
+      "description": "Duplicate email is rejected",
+      "check": {
+        "command": [
+          "node",
+          "--test",
+          "--test-reporter=tap",
+          "--test-name-pattern=duplicate email",
+          "registration.test.mjs"
+        ],
+        "expect": {
+          "stdoutIncludes": "# pass 1"
+        }
+      }
+    },
+    {
+      "id": "password-hash",
+      "description": "Passwords use salted scrypt storage",
+      "check": {
+        "command": [
+          "node",
+          "--test",
+          "--test-reporter=tap",
+          "--test-name-pattern=password is hashed",
+          "registration.test.mjs"
+        ],
+        "expect": {
+          "stdoutIncludes": "# pass 1"
+        }
+      }
+    },
+    {
+      "id": "login",
+      "description": "User can log in after registration",
+      "check": {
+        "command": [
+          "node",
+          "--test",
+          "--test-reporter=tap",
+          "--test-name-pattern=login after",
+          "registration.test.mjs"
+        ],
+        "expect": {
+          "stdoutIncludes": "# pass 1"
+        }
+      }
+    }
+  ]
+}

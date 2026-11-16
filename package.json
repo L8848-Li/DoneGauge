@@ -1,0 +1,92 @@
+{
+  "name": "donegauge",
+  "version": "0.1.0",
+  "description": "Acceptance Layer for AI Coding. Know what's done. See what's verified.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "donegauge": "dist/src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./dsh": {
+      "types": "./dist/src/adapters/dsh/index.d.ts",
+      "default": "./dist/src/adapters/dsh/index.js"
+    },
+    "./schema": "./schema/donegauge.schema.json"
+  },
+  "files": [
+    "dist/src",
+    "schema",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "docs",
+    "examples",
+    "scripts/demo.mjs",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.2-rc.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "lint": "eslint src tests scripts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "prepack": "npm run build",
+    "test:package": "node scripts/test-package.mjs",
+    "test:dsh-host": "npm run build && node scripts/test-dsh-host.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.3"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-tool-executor-native": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-tool-testkit": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.3",
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/L8848-Li/DoneGauge.git"
+  },
+  "homepage": "https://github.com/L8848-Li/DoneGauge#readme",
+  "bugs": {
+    "url": "https://github.com/L8848-Li/DoneGauge/issues"
+  }
+}

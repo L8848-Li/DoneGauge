@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "task": "Calculate cart totals without floating-point rounding errors",
+  "criteria": [
+    {
+      "id": "total",
+      "description": "0.10 + 0.20 produces exactly 0.30",
+      "check": {
+        "command": [
+          "python3",
+          "-B",
+          "-m",
+          "unittest",
+          "-v",
+          "test_cart.CartTests.test_exact_total"
+        ],
+        "expect": { "stderrIncludes": "OK" }
+      }
+    },
+    {
+      "id": "negative",
+      "description": "Negative prices are rejected",
+      "check": {
+        "command": [
+          "python3",
+          "-B",
+          "-m",
+          "unittest",
+          "-v",
+          "test_cart.CartTests.test_negative_price"
+        ],
+        "expect": { "stderrIncludes": "OK" }
+      }
+    }
+  ]
+}

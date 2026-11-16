@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "task": "Review registration with a real login regression and evidence gaps",
+  "criteria": [
+    {
+      "id": "email",
+      "description": "Duplicate email is rejected",
+      "check": {
+        "command": [
+          "node",
+          "--test",
+          "--test-reporter=tap",
+          "--test-name-pattern=duplicate email",
+          "registration.test.mjs"
+        ],
+        "expect": {
+          "stdoutIncludes": "# pass 1"
+        }
+      }
+    },
+    {
+      "id": "login",
+      "description": "User can log in with the regressed implementation",
+      "check": {
+        "command": ["node", "--test", "--test-reporter=tap", "broken.test.mjs"]
+      }
+    },
+    {
+      "id": "audit",
+      "description": "Security audit completed (no check configured)"
+    },
+    {
+      "id": "missing-tool",
+      "description": "External audit command can execute",
+      "check": {
+        "command": ["donegauge-example-missing-auditor"]
+      }
+    }
+  ]
+}

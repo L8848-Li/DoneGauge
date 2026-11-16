@@ -1,0 +1,5 @@
+node_modules
+dist
+.donegauge
+package-lock.json
+*.tgz
