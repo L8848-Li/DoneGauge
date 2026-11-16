@@ -208,7 +208,7 @@ model-driven Desktop UI test. It never edits your global DSH configuration.
 - Logs default to 64 KiB per check; the displayed Git diff is capped at 256 KiB.
   Metadata that exceeds its bound stops the run rather than silently omitting files.
 - Renames are reported as delete/add. No remote fetch or automatic base selection.
-- macOS is verified locally; Linux CI is configured. Windows is not a supported,
+- Ubuntu and macOS passed the [hosted CI checks](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml). Windows is not a supported,
   verified V0.1 target. Its process-tree termination and `.cmd` launching need work.
 - DSH compatibility is deliberately pinned to 0.2.2-rc.3. Commands run in the host
   user context, not DSH's bash sandbox. No other agent adapters are implemented.

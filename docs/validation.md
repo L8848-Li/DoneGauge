@@ -56,10 +56,19 @@ documented demos or installed-host script to create your own fresh evidence.
 printed path, then stops the isolated host. Existing Desktop/profile configuration
 is not changed. No model/API request or paid service is used by these checks.
 
+## Hosted CI verification
+
+The public repository's [first hosted run](https://github.com/L8848-Li/DoneGauge/actions/runs/43867449510)
+completed successfully for source commit `9feca35de780ca9134744eab975cfa82e29abf54`.
+Both `ubuntu-latest` and `macos-latest` completed dependency installation,
+`npm run check`, and `npm run test:package`. The package-install check now uses
+`--prefer-offline` so that a fresh CI cache can fetch missing dependencies.
+See [Actions](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml) for
+later runs; do not infer a new commit's status from this historical result.
+
 ## Boundaries recorded at initial local delivery
 
-- Linux CI is configured for Ubuntu and macOS, but a hosted CI run has not been
-  performed from this local checkout. Windows support is incomplete.
+- Ubuntu/macOS hosted CI has now passed as recorded above. Windows support remains incomplete.
 - No manual live-model conversation or custom card was tested in DSH Desktop/Web.
   The installed CLI, loader, and actual tool execution were tested. PTC-specific
   agent calls and DSH versions other than 0.2.2-rc.3 remain unverified.
