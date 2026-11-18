@@ -7,7 +7,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { devNull, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { TestContext } from 'node:test';
@@ -21,7 +21,7 @@ export async function execGit(root: string, args: string[]): Promise<string> {
       env: {
         ...process.env,
         GIT_CONFIG_NOSYSTEM: '1',
-        GIT_CONFIG_GLOBAL: devNull,
+        GIT_CONFIG_GLOBAL: join(root, '.git', 'donegauge-test-global-config'),
         GIT_AUTHOR_NAME: 'DoneGauge Test',
         GIT_AUTHOR_EMAIL: 'test@example.test',
         GIT_COMMITTER_NAME: 'DoneGauge Test',

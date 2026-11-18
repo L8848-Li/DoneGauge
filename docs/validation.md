@@ -144,3 +144,26 @@ replacement. The existing replacement regression remains enabled on both systems
 
 See the [release guide](release.zh-CN.md) to build and verify one archive before
 uploading it.
+
+## Desktop card and cancellation verification (2026-11-18)
+
+The release archive was installed on DeepSeek Harness Desktop **0.2.2-rc.3**
+and tested with `deepseek-v4-flash` in a dedicated example workspace. The
+configured test binding was removed after verification. The tested scenarios
+were:
+
+| Scenario             | Observed outcome                                                                                                                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Named JUnit checks   | The model invoked `donegauge_check` with `{}`. All three targets passed in the saved report and the model reported VERIFIED.                                                                               |
+| Mixed acceptance     | The tool and model reported one of each status. The native card replayed from durable metadata after restart, expanded the failed check's exit code and evidence ID, and opened the saved Markdown report. |
+| Stale digest         | An otherwise harmless edit to the config invalidated the approval. The tool refused execution and created no report.                                                                                       |
+| Deployment policy    | A temporary `tools/pre-execute` denial for `donegauge_check` reached the actual model and left the report count unchanged.                                                                                 |
+| Cancel while running | A disposable foreground command and its child recorded their process IDs before cancellation. Desktop showed the stopped turn, both PIDs exited, and the cancellation generated no success report.         |
+
+To reproduce, bind the Node example's `donegauge.junit.json` and
+`donegauge.mixed.json` separately using their reviewed digests, then prompt a
+model to invoke `donegauge_check` with an empty object. For a cancellation
+check, approve a disposable fixture that starts a child and writes both PIDs
+to an ignored ready file. Stop generation after that file appears and verify
+that both processes ended. `npm test` also exercises in-flight cancellation
+through the official runtime without model requests.

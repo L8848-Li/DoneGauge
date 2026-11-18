@@ -104,7 +104,7 @@ function DoneGaugeCard({ phase, block, openFile }: ToolViewProps) {
     return (
       <section aria-label="DoneGauge acceptance" style={cardStyle}>
         <strong>
-          {block.isError ? 'DoneGauge · execution stopped' : 'DoneGauge'}
+          {block.isError ? 'DoneGauge · check unavailable' : 'DoneGauge'}
         </strong>
         <div style={{ whiteSpace: 'pre-wrap', ...muted }}>{message}</div>
       </section>

@@ -3,6 +3,7 @@ import test, { type TestContext } from 'node:test';
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Context } from '@deepseek-ai/cordis';
 import { SystemPrompt } from '@deepseek-ai/dsh-system-prompt';
 import { ToolsService, type ToolExecutionInput } from '@deepseek-ai/dsh-tools';
@@ -181,6 +182,42 @@ test('DSH policy denial and cancellation bypass tool execution', async (t) => {
   controller.abort();
   assert.equal((await call(ctx, {}, controller.signal)).isError, true);
   await assert.rejects(access(join(root, 'must-not-run')));
+});
+
+test('cancelling an in-flight DSH check does not produce a success report', async (t) => {
+  const root = await newRepo(t);
+  await saveConfig(
+    root,
+    configWith([
+      process.execPath,
+      '-e',
+      "require('node:fs').writeFileSync('check-started','yes');setInterval(()=>{},1000)",
+    ]),
+  );
+  const ctx = await host(t, {
+    root,
+    approvedConfigSha256: (await loadConfig(root)).sha256,
+  });
+  const controller = new AbortController();
+  t.after(() => controller.abort());
+  const resultPromise = call(ctx, {}, controller.signal);
+  const started = join(root, 'check-started');
+  const deadline = Date.now() + 5000;
+  while (
+    !(await access(started).then(
+      () => true,
+      () => false,
+    ))
+  ) {
+    assert.ok(Date.now() < deadline, 'The underlying command never started.');
+    await delay(25);
+  }
+  controller.abort();
+  const result = await resultPromise;
+  assert.equal(result.isError, true);
+  await assert.rejects(access(join(root, '.donegauge/runs')), {
+    code: 'ENOENT',
+  });
 });
 
 test('disposing plugin removes tool registration from official registry', async (t) => {

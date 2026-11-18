@@ -2,8 +2,37 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig, parseConfig, projectPath } from '../src/core/config.js';
+import {
+  isWithin,
+  loadConfig,
+  parseConfig,
+  projectPath,
+} from '../src/core/config.js';
 import { configWith, tempDirectory } from './helpers.js';
+
+test(
+  'Windows containment handles case, drives and UNC roots',
+  { skip: process.platform !== 'win32' },
+  () => {
+    assert.equal(
+      isWithin('C:\\Repo', 'c:\\repo\\中文 folder\\report.json'),
+      true,
+    );
+    assert.equal(isWithin('C:\\Repo', 'D:\\Repo\\report.json'), false);
+    assert.equal(
+      isWithin('\\\\server\\share\\repo', '\\\\server\\share\\repo\\nested'),
+      true,
+    );
+    assert.equal(
+      isWithin('\\\\server\\share\\repo', '\\\\server\\share\\outside'),
+      false,
+    );
+    assert.equal(
+      isWithin('\\\\server\\share\\repo', '\\\\server2\\share\\repo'),
+      false,
+    );
+  },
+);
 
 test('valid config supports a command contract and optional missing evidence', () => {
   assert.equal(
