@@ -65,7 +65,7 @@ node /path/to/DoneGauge/dist/src/cli.js config-hash --cwd /path/to/project
 
 > 请调用 `donegauge_check`，核验本项目配置的验收条件。
 
-工具调用参数为 `{}`。项目和检查命令由本地配置决定。配置变动后需要重新审阅并更新摘要，才能再次运行。已在真实 Desktop 对话中验证四种结果和旧摘要拒绝，见 [验证记录](docs/validation.md#market-preview-preparation-2026-11-18)。其余实机场景见 [issue #2](https://github.com/L8848-Li/DoneGauge/issues/2)。
+工具调用参数为 `{}`。项目和检查命令由本地配置决定。配置变动后需要重新审阅并更新摘要，才能再次运行。在 Desktop 或 Web 展开工具调用组，即可查看四种状态、逐项证据和本地报告入口。真实桌面调用、授权拒绝和取消场景见[验证记录](docs/validation.md#desktop-card-and-cancellation-verification-2026-11-18)。
 
 ## 在自己的项目中使用
 
@@ -148,7 +148,7 @@ JUnit 的 PASS 还要求本次报告完整、目标测试唯一匹配且实际�
 - 检查顺序执行；前后 Git 指纹不是原子快照或签名证明。忽略文件及子模块内部未提交内容不被完整追踪。
 - 默认每条命令保留 64 KiB 输出，Git 差异展示上限 256 KiB；文件元数据超限会停止采集，不会静默漏掉文件。
 - 重命名按删除和新增显示；不自动拉取远程仓库或选择任务基准。
-- [GitHub CI](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml) 覆盖 Ubuntu 和 macOS。Windows 的进程树终止和 `.cmd` 启动见 [issue #3](https://github.com/L8848-Li/DoneGauge/issues/3)。
+- [GitHub CI](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml) 在 Ubuntu、macOS、Windows 上验证 Node 24 的 CLI，并在 Ubuntu 验证 Node 22 的核心功能。Windows 的批处理与进程树约束见[配置说明](docs/configuration.md#commands-and-authorization)。
 - DSH 检查使用宿主用户权限。启用前请了解[执行和授权细节](docs/dsh.md#returned-result-and-execution-permission)。
 
 ## 开发与路线图

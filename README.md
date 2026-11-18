@@ -84,10 +84,10 @@ request in DSH.
 
 The tool call uses `{}`. The local patch controls the project and commands. A
 configuration change requires a fresh review and digest before tests can run.
-An actual Desktop conversation exercised the tool against a mixed-result
-fixture and confirmed that an outdated approval was rejected. See the
-[verification record](docs/validation.md#market-preview-preparation-2026-11-18)
-and [issue #2](https://github.com/L8848-Li/DoneGauge/issues/2) for remaining scenarios.
+Expand the tool group in Desktop or Web for the four status counts, per-criterion
+evidence and buttons to open the local reports. The
+[verification record](docs/validation.md#desktop-card-and-cancellation-verification-2026-11-18)
+covers real Desktop calls, expired approvals, policy denials and cancellation.
 
 ## Use it in your project
 
@@ -208,9 +208,9 @@ evidence.
 - Logs default to 64 KiB per check; the displayed Git diff is capped at 256 KiB.
   Metadata that exceeds its bound stops the run rather than silently omitting files.
 - Renames are reported as delete/add. No remote fetch or automatic base selection.
-- Hosted CI exercises [Ubuntu and macOS](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml).
-  Windows process-tree termination and `.cmd` launch are tracked in
-  [issue #3](https://github.com/L8848-Li/DoneGauge/issues/3).
+- [Hosted CI](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml)
+  verifies the CLI on Ubuntu, macOS and Windows with Node 24, plus the Ubuntu
+  core/CLI suite on Node 22. See the [Windows batch and process limits](docs/configuration.md#commands-and-authorization).
 - DSH checks run with host user permissions. Review the [execution and approval
   details](docs/dsh.md#returned-result-and-execution-permission) before enabling a project.
 

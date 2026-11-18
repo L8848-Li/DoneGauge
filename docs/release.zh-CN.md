@@ -67,10 +67,7 @@ npx --no-install donegauge --version
 
 后续发行从手动运行 [Stage or verify npm release](https://github.com/L8848-Li/DoneGauge/actions/workflows/npm-release.yml) 开始。输入已公开的 GitHub Release 版本并选择 `stage`。流程校验相同版本的 Release 附件，通过 OIDC 提交暂存，维护者在 npm 用 2FA 审批。公开后用 `verify` 安装该版本并核对名称、仓库、许可证、真实 Node/Python 验收及报告。验证成功后更新 README 公共安装入口。
 
-## Issue 优先级
+## 维护者待办
 
-| 阶段     | 事项                                                                                                                                                                                                         |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 预览前   | [#1 JUnit 验收证据](https://github.com/L8848-Li/DoneGauge/issues/1)、[#2 真实 DSH 对话验证](https://github.com/L8848-Li/DoneGauge/issues/2)、[#5 发布安装包](https://github.com/L8848-Li/DoneGauge/issues/5) |
-| 补齐保障 | [#4 合并保护](https://github.com/L8848-Li/DoneGauge/issues/4)、[#7 增加示例断言覆盖](https://github.com/L8848-Li/DoneGauge/issues/7)                                                                         |
-| 后续发布 | [#3 Windows 支持](https://github.com/L8848-Li/DoneGauge/issues/3)、[#6 npm 发布](https://github.com/L8848-Li/DoneGauge/issues/6)                                                                             |
+- 开发阶段允许直接推送 `main`。进入需要 PR 审查的阶段时，按 [#4](https://github.com/L8848-Li/DoneGauge/issues/4) 配置必需检查和分支保护。
+- [#6](https://github.com/L8848-Li/DoneGauge/issues/6) 记录 npm 账户确认、公开发行与安装验证。GitHub Release 是当前预览版的分发入口。

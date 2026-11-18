@@ -127,9 +127,9 @@ The packaged bundle was installed through the official CLI in both supported
 versions, and the tool ran real tests through the native executor. Automated tests also cover
 denial, cancellation, missing approval, arbitrary arguments, stale config approval,
 and plugin unload. A live Desktop conversation also exercised tool selection,
-four mixed results, local reports, and stale-approval refusal. See the
-[verification record](validation.md#market-preview-preparation-2026-11-18).
-Remaining live scenarios are tracked in [issue #2](https://github.com/L8848-Li/DoneGauge/issues/2).
+four mixed results, both report links, stale-approval refusal, deployment
+policy and cancellation. See the
+[verification record](validation.md#desktop-card-and-cancellation-verification-2026-11-18).
 
 See the [official tool reference](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/adding-a-tool.md)
 and [plugin packaging guide](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.md).

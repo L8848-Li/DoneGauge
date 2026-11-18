@@ -152,13 +152,13 @@ and tested with `deepseek-v4-flash` in a dedicated example workspace. The
 configured test binding was removed after verification. The tested scenarios
 were:
 
-| Scenario             | Observed outcome                                                                                                                                                                                           |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Named JUnit checks   | The model invoked `donegauge_check` with `{}`. All three targets passed in the saved report and the model reported VERIFIED.                                                                               |
-| Mixed acceptance     | The tool and model reported one of each status. The native card replayed from durable metadata after restart, expanded the failed check's exit code and evidence ID, and opened the saved Markdown report. |
-| Stale digest         | An otherwise harmless edit to the config invalidated the approval. The tool refused execution and created no report.                                                                                       |
-| Deployment policy    | A temporary `tools/pre-execute` denial for `donegauge_check` reached the actual model and left the report count unchanged.                                                                                 |
-| Cancel while running | A disposable foreground command and its child recorded their process IDs before cancellation. Desktop showed the stopped turn, both PIDs exited, and the cancellation generated no success report.         |
+| Scenario             | Observed outcome                                                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Named JUnit checks   | The model invoked `donegauge_check` with `{}`. All three targets passed in the saved report and the model reported VERIFIED.                                                                        |
+| Mixed acceptance     | The tool and model reported one of each status. The native card replayed from durable metadata after restart, expanded the failed check's exit code and evidence ID, and opened both saved reports. |
+| Stale digest         | An otherwise harmless edit to the config invalidated the approval. The tool refused execution and created no report.                                                                                |
+| Deployment policy    | A temporary `tools/pre-execute` denial for `donegauge_check` reached the actual model and left the report count unchanged.                                                                          |
+| Cancel while running | A disposable foreground command and its child recorded their process IDs before cancellation. Desktop showed the stopped turn, both PIDs exited, and the cancellation generated no success report.  |
 
 To reproduce, bind the Node example's `donegauge.junit.json` and
 `donegauge.mixed.json` separately using their reviewed digests, then prompt a
@@ -167,3 +167,15 @@ check, approve a disposable fixture that starts a child and writes both PIDs
 to an ignored ready file. Stop generation after that file appears and verify
 that both processes ended. `npm test` also exercises in-flight cancellation
 through the official runtime without model requests.
+
+The installed package was also loaded by the official **0.2.2-rc.4** Web host.
+Its served bundle registered `donegauge_check` in the tool slot and rendered
+real runtime metadata using React, including the status grid and both report
+buttons. The fallback displayed the authorization error text. The Web smoke
+used no model request.
+
+The [hosted matrix](https://github.com/L8848-Li/DoneGauge/actions/runs/44249560357)
+passed across Ubuntu, macOS and Windows on Node 24, and Ubuntu core/CLI on Node 22.
+Windows verified literal native arguments, explicit `.cmd` and `.bat` launch,
+timeout and cancellation of a real parent/child process pair, junction and
+path boundaries, and installed Node and Python demos.
