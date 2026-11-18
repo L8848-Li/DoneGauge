@@ -184,10 +184,28 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
             text: [
               `DoneGauge: ${report.task}`,
               `${report.summary.PASS} verified, ${report.summary.FAIL} failed, ${report.summary.UNVERIFIED} unverified, ${report.summary.ERROR} errors`,
-              ...report.criteria.map(
-                (c) =>
-                  `[${c.status}] ${c.id}: ${c.reason}${c.testEvidence ? ` Targets executed: ${c.testEvidence.counts.executedTargets}/${c.testEvidence.counts.targets}; evidence: ${c.evidence?.id}; XML: ${c.testEvidence.source.path}; tests: ${c.testEvidence.selections.map((s) => `${s.selector.name}: ${s.matches.length === 1 ? c.testEvidence!.cases[s.matches[0]!]!.outcome : s.matches.length ? 'ambiguous' : 'missing'}`).join(', ')}` : ''}`,
-              ),
+              ...report.criteria.map((c) => {
+                const summary = `[${c.status}] ${c.id}: ${c.reason}`;
+                const evidence = c.evidence
+                  ? ` Evidence ID: ${c.evidence.id}.`
+                  : '';
+                const junit = c.testEvidence;
+                if (!junit) return summary + evidence;
+                const tests = junit.selections.map((selection) => {
+                  const outcome =
+                    selection.matches.length === 1
+                      ? junit.cases[selection.matches[0]!]!.outcome
+                      : selection.matches.length
+                        ? 'ambiguous'
+                        : 'missing';
+                  return `${selection.selector.name}: ${outcome}`;
+                });
+                return (
+                  summary +
+                  evidence +
+                  ` Targets executed: ${junit.counts.executedTargets}/${junit.counts.targets}; XML: ${junit.source.path}; tests: ${tests.join(', ')}`
+                );
+              }),
               ...report.warnings,
               `Final status: ${report.finalStatus}`,
             ].join('\n'),

@@ -1,7 +1,14 @@
 {
   "name": "donegauge",
   "version": "0.1.0",
-  "description": "Acceptance Layer for AI Coding. Know what's done. See what's verified.",
+  "description": "Verify AI coding tasks against local commands and named JUnit tests. See the evidence for each acceptance criterion.",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "acceptance-testing",
+    "junit",
+    "ai-coding"
+  ],
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -33,7 +40,7 @@
   ],
   "engines": {
     "node": ">=22",
-    "dsh": "0.2.2-rc.3"
+    "dsh": "0.2.2-rc.3 || 0.2.2-rc.4"
   },
   "scripts": {
     "build": "tsc",
@@ -53,7 +60,7 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.1.0",
-    "@deepseek-ai/dsh-tools": "0.2.2-rc.3"
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.3 || 0.2.2-rc.4"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {

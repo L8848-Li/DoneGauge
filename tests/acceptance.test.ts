@@ -13,6 +13,7 @@ import {
 import type { AcceptanceReport } from '../src/core/types.js';
 import {
   configWith,
+  execGit,
   newRepo,
   reportFrom,
   runCli,
@@ -20,12 +21,17 @@ import {
   tempDirectory,
 } from './helpers.js';
 
+const { version } = JSON.parse(
+  await readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+) as { version: string };
+
 test('CLI runs real Node registration project: three passes and traceable evidence', async (t) => {
   const root = await newRepo(t, 'node-registration');
   await writeFile(join(root, 'tracked.txt'), 'working tree change\n');
   const result = await runCli(root, ['check', '--allow-run', '--json']);
   assert.equal(result.code, 0, result.stderr);
   const report = JSON.parse(result.stdout) as AcceptanceReport;
+  assert.equal(report.toolVersion, version);
   assert.deepEqual(report.summary, {
     PASS: 3,
     FAIL: 0,
@@ -173,6 +179,39 @@ test('workspace mutation during a passing check requires review', async (t) => {
   assert.match(report.warnings.join(), /changed during/);
 });
 
+test('unresolved Git conflicts require review even when checks pass', async (t) => {
+  const root = await newRepo(t);
+  const tracked = join(root, 'tracked.txt');
+  const otherTracked = join(root, 'delete.txt');
+  await execGit(root, ['checkout', '-b', 'conflict-left']);
+  await writeFile(tracked, 'left\n');
+  await writeFile(otherTracked, 'left\n');
+  await execGit(root, ['commit', '-qam', 'Left change']);
+  await execGit(root, ['checkout', '-b', 'conflict-right', 'HEAD^']);
+  await writeFile(tracked, 'right\n');
+  await writeFile(otherTracked, 'right\n');
+  await execGit(root, ['commit', '-qam', 'Right change']);
+  await assert.rejects(execGit(root, ['merge', 'conflict-left']), { code: 1 });
+  // Keep the index conflict while making the working file match HEAD.
+  await writeFile(otherTracked, 'right\n');
+  await saveConfig(root, configWith([process.execPath, '--version']));
+
+  const result = await runCli(root, ['check', '--allow-run', '--json']);
+  assert.equal(result.code, 1, result.stderr);
+  const report = JSON.parse(result.stdout) as AcceptanceReport;
+  assert.equal(report.summary.PASS, 1);
+  assert.equal(report.workspaceChangedDuringRun, false);
+  assert.equal(report.finalStatus, 'REVIEW REQUIRED');
+  assert.match(report.warnings.join(), /unresolved/);
+  assert.deepEqual(
+    report.changes.files.filter((file) => file.status === 'unmerged'),
+    [
+      { path: 'delete.txt', status: 'unmerged', untracked: false },
+      { path: 'tracked.txt', status: 'unmerged', untracked: false },
+    ],
+  );
+});
+
 test('CLI exit codes distinguish review, execution errors, usage and non-Git failures', async (t) => {
   const root = await newRepo(t);
   await saveConfig(root, configWith());
@@ -200,7 +239,10 @@ test('CLI exit codes distinguish review, execution errors, usage and non-Git fai
 
 test('init is usable and never overwrites existing configuration', async (t) => {
   const root = await tempDirectory(t);
-  assert.equal((await runCli(root, ['--version'])).stdout.trim(), '0.1.0');
+  assert.equal((await runCli(root, ['--version'])).stdout.trim(), version);
+  assert.ok(
+    (await runCli(root, ['--help'])).stdout.startsWith(`DoneGauge ${version} `),
+  );
   assert.equal((await runCli(root, ['init'])).code, 0);
   const before = await readFile(join(root, 'donegauge.json'), 'utf8');
   assert.equal((await runCli(root, ['init'])).code, 2);

@@ -131,7 +131,7 @@ export interface CriterionResult {
 
 export interface AcceptanceReport {
   reportVersion: 1;
-  toolVersion: '0.1.0';
+  toolVersion: string;
   runId: string;
   task: string;
   config: { path: string; sha256: string };

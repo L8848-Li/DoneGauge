@@ -1,40 +1,21 @@
 # DoneGauge
 
-**Know what's done. See what's verified.**
+**Acceptance checks for AI-assisted coding**
 
-DoneGauge is a local acceptance layer for AI coding: connect explicit requirements
-to real commands, Git changes, and inspectable test evidence.
+Write an acceptance criterion such as “Duplicate email is rejected” and link it
+to an exact test name. DoneGauge runs the checks you approve and saves the Git
+changes, command logs, and fresh JUnit XML alongside the result. You can see
+which criteria passed and which still need review.
 
-> AI says it's done. DoneGauge shows the evidence.
-
-[简体中文](README.zh-CN.md) · [Configuration](docs/configuration.md) ·
-[DSH integration](docs/dsh.md) · [Architecture](docs/architecture.md) ·
-[Next steps design (中文)](docs/next-steps.zh-CN.md)
-
-## What it does
-
-- Collects tracked and untracked changes against a Git commit, including staged
-  and unstaged work. It never modifies your Git history or index.
-- Reads one `donegauge.json` with the task, acceptance criteria, and explicit check
-  commands; validates it with a shipped JSON Schema.
-- Links exact named tests to fresh JUnit XML from Node, pytest, and compatible
-  runners; missing, skipped, ambiguous, and file-wrapper cases cannot PASS.
-- Runs reviewed local commands without an implicit shell, with deadlines,
-  cancellation, and bounded logs.
-- Separates **PASS**, **FAIL**, **UNVERIFIED**, and **ERROR**. Every passing criterion
-  references a real execution with its command, timestamps, exit status, and logs.
-- Produces terminal, Markdown, and JSON reports in a fresh directory for every run.
-- Offers `donegauge_check` through the official DeepSeek Harness plugin API.
-
-Code review explains a diff. A test runner executes tests. DoneGauge links the
-user's acceptance conditions to configured checks and shows gaps in the evidence.
-It does not infer correctness from related code, invent tests, assign a correctness
-percentage, or use a model to decide PASS. No API key is required.
+[简体中文](README.zh-CN.md) · [Try the demo](#three-minute-junit-demo) ·
+[Use with DeepSeek Harness](#deepseek-harness) · [Configuration](docs/configuration.md) ·
+[Distribution and market status (中文)](docs/release.zh-CN.md)
 
 ## Install from this source checkout
 
-Requires **Node.js 22+**, npm, and Git. The Python example needs Python 3.
-The optional DSH adapter requires **Node.js 24.9+ and DSH 0.2.2-rc.3**.
+The standalone CLI requires **Node.js 22+**, npm, and Git. It runs locally
+without an API key. The optional [DeepSeek Harness adapter](#deepseek-harness)
+has its own runtime requirements.
 
 ```sh
 git clone https://github.com/L8848-Li/DoneGauge.git
@@ -44,9 +25,8 @@ npm run build
 node dist/src/cli.js --help
 ```
 
-This release is a local source/tarball deliverable; it has not been published to
-npm. Do not assume `npx donegauge` downloads this code. To install the built package
-in another project's local tools:
+DoneGauge is currently available to build from source. For use in another
+project, pack this checkout and install the local tarball:
 
 ```sh
 # In the DoneGauge checkout
@@ -57,38 +37,57 @@ npm install --save-dev /path/to/DoneGauge/donegauge-0.1.0.tgz
 npx --no-install donegauge --version
 ```
 
-No global dependency installation is needed. `npm run test:package` tests an actual
-packed installation in a disposable project, including its installed executable.
+## Three-minute JUnit demo
 
-## Three-minute example
-
-From the DoneGauge checkout, prepare an isolated example Git repository:
+After building the checkout, run three named Node.js tests in a disposable Git
+repository:
 
 ```sh
-node scripts/demo.mjs node-registration
+node scripts/demo.mjs node-registration --junit --run
 ```
 
-The script copies the example to a temporary directory, initializes Git there,
-and prints the exact check commands. It never changes Git in this checkout.
-Run the printed preview, then the printed `check --allow-run` command. Three real
-Node.js assertions cover duplicate email, salted password storage, and login.
+Expect **3 PASS** for duplicate email rejection, salted password storage, and
+login. Open `report.md` at the printed path inside the temporary project to
+see each selected test name and the path to its fresh JUnit XML. Omit `--run`
+to prepare the example and review the commands before running them.
 
 To see all four states using real execution results:
 
 ```sh
-node scripts/demo.mjs node-registration --mixed
+node scripts/demo.mjs node-registration --mixed --run
 ```
 
 The mixed configuration tests an intentionally regressed login implementation,
 leaves one condition without a check, and invokes a missing audit executable.
-Its expected exit code is 2, with one criterion in each status. This is an
-intentional failure fixture, not a fabricated acceptance result.
+Expect one criterion in each status and exit code 2.
 
-The independent Python example uses standard-library `unittest` and `Decimal`:
+The [runnable examples](examples/README.md) include a Python cart with both
+`unittest` and pytest/JUnit setups.
+
+## DeepSeek Harness
+
+DoneGauge registers `donegauge_check` through the official DSH plugin API. The
+verified hosts are **DSH 0.2.2-rc.3 and 0.2.2-rc.4**, which require Node.js 24.9 or later.
+Follow the [DSH setup](docs/dsh.md) to load from a source checkout or install a
+built bundle. Market submission status is recorded in the [release guide](docs/release.zh-CN.md).
+
+Review the target project's `donegauge.json` and get its SHA-256 digest:
 
 ```sh
-node scripts/demo.mjs python-cart
+node /path/to/DoneGauge/dist/src/cli.js config-hash --cwd /path/to/project
 ```
+
+Bind the absolute Git root and that digest in a local DSH patch. Send this
+request in DSH.
+
+> Use `donegauge_check` to verify this project's configured acceptance criteria.
+
+The tool call uses `{}`. The local patch controls the project and commands. A
+configuration change requires a fresh review and digest before tests can run.
+An actual Desktop conversation exercised the tool against a mixed-result
+fixture and confirmed that an outdated approval was rejected. See the
+[verification record](docs/validation.md#market-preview-preparation-2026-11-18)
+and [issue #2](https://github.com/L8848-Li/DoneGauge/issues/2) for remaining scenarios.
 
 ## Use it in your project
 
@@ -96,26 +95,33 @@ node scripts/demo.mjs python-cart
 npx --no-install donegauge init
 ```
 
-Edit the created config. `init` never overwrites an existing file and creates no
-pre-approved test command. For example:
+Edit the generated config to connect a criterion to a test your project already
+has. `init` preserves existing files and leaves execution for you to approve.
 
 ```json
 {
   "version": 1,
-  "task": "Implement user registration",
+  "task": "Reject duplicate email during registration",
   "criteria": [
     {
-      "id": "registration",
-      "description": "The registration assertions pass",
+      "id": "duplicate-email",
+      "description": "Duplicate email is rejected",
       "check": {
+        "kind": "junit",
         "command": [
           "node",
           "--test",
-          "--test-reporter=tap",
+          "--test-reporter=junit",
+          "--test-reporter-destination={evidenceDir}/junit.xml",
+          "--test-name-pattern=duplicate email",
           "registration.test.mjs"
         ],
-        "timeoutMs": 30000,
-        "expect": { "stdoutIncludes": "# pass 3" }
+        "junit": {
+          "file": "{evidenceDir}/junit.xml",
+          "tests": [
+            { "name": "duplicate email is rejected", "className": "test" }
+          ]
+        }
       }
     },
     { "id": "audit", "description": "Security review completed" }
@@ -129,10 +135,11 @@ npx --no-install donegauge check --allow-run
 npx --no-install donegauge check --allow-run --base main --json
 ```
 
-Without `--allow-run`, `check` only previews and marks checks UNVERIFIED.
-Commands are argv arrays, not shell strings. `&&`, redirection, `$()` and globs
-are not expanded. Review the commands and project code before authorizing a run;
-they execute with your local user permissions and environment.
+The first command previews the checks and reports UNVERIFIED. The next two
+execute approved checks with your local user permissions and environment.
+Write commands as an executable followed by individual arguments and review
+the commands and project code before execution. For exit-code or log-only
+checks, use a [command check](docs/configuration.md#fields).
 
 ## Reading results
 
@@ -170,12 +177,12 @@ diffs are saved in:
 directory is excluded from untracked change collection. Reports can contain
 private code and logs; they stay local and are not automatically redacted.
 
-| Status     | Interpretation                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------ |
-| PASS       | The configured check met its exit/output contract.                                               |
-| FAIL       | The completed command contradicted its contract, or a selected JUnit test failed.                |
-| UNVERIFIED | No sufficient evidence: missing check, preview, or required output lost to truncation.           |
-| ERROR      | Execution failed to start, timed out, was interrupted, or otherwise failed to complete normally. |
+| Status     | Interpretation                                                                                        |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| PASS       | A selected JUnit test passed with complete fresh evidence, or a command met its exit/output contract. |
+| FAIL       | The completed command contradicted its contract, or a selected JUnit test failed.                     |
+| UNVERIFIED | No sufficient evidence: missing check, preview, or required output lost to truncation.                |
+| ERROR      | Execution failed to start, timed out, was interrupted, or otherwise failed to complete normally.      |
 
 For JUnit, PASS also requires uniquely selected executed tests and complete fresh
 XML; missing, skipped, ambiguous, or file-wrapper targets remain UNVERIFIED. See
@@ -186,20 +193,6 @@ required; **2** configuration, Git, report-writing, or check execution errors.
 Interrupts use 130/143. A workspace change during verification always requires
 review, even if the commands passed. Global setup errors do not create fake check
 evidence.
-
-## DeepSeek Harness
-
-The adapter is a real Cordis tool plugin, independent of the CLI. Bind an absolute
-Git root and a reviewed config SHA-256 in a local DSH patch, then explicitly ask
-DSH to use `donegauge_check` with `{}`. The model cannot supply commands or paths.
-
-```sh
-npx --no-install donegauge config-hash
-```
-
-See [the complete DSH setup](docs/dsh.md). V0.1 verifies the official runtime and
-installed host CLI path; it does not provide a custom Web card or claim a manual
-model-driven Desktop UI test. It never edits your global DSH configuration.
 
 ## Known limits
 
@@ -215,12 +208,11 @@ model-driven Desktop UI test. It never edits your global DSH configuration.
 - Logs default to 64 KiB per check; the displayed Git diff is capped at 256 KiB.
   Metadata that exceeds its bound stops the run rather than silently omitting files.
 - Renames are reported as delete/add. No remote fetch or automatic base selection.
-- Ubuntu and macOS passed the [hosted CI checks](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml). Windows is not a supported,
-  verified V0.1 target. Its process-tree termination and `.cmd` launching need work.
-- DSH compatibility is deliberately pinned to 0.2.2-rc.3. Commands run in the host
-  user context, not DSH's bash sandbox. No other agent adapters are implemented.
-- No dashboard, accounts, collaboration, cloud storage, automatic repair,
-  interactive initializer, or previous-report browser.
+- Hosted CI exercises [Ubuntu and macOS](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml).
+  Windows process-tree termination and `.cmd` launch are tracked in
+  [issue #3](https://github.com/L8848-Li/DoneGauge/issues/3).
+- DSH checks run with host user permissions. Review the [execution and approval
+  details](docs/dsh.md#returned-result-and-execution-permission) before enabling a project.
 
 ## Development and roadmap
 
@@ -233,12 +225,10 @@ npm run test:dsh-host  # optional: requires an installed compatible DSH
 
 See [CONTRIBUTING](CONTRIBUTING.md) and the [actual validation record](docs/validation.md).
 
-The **JUnit result checker** now links criteria to named tests from fresh runs;
-see [JUnit configuration](docs/configuration.md#junit-checks). Next: V0.2 Codex/Claude
-Code adapters; V0.3 framework checkers; V0.4 evidence tracing and quality gates;
-V1.0 acceptance handoff protocol. These are future plans, not shipped features.
+See the [open issues](https://github.com/L8848-Li/DoneGauge/issues) for current
+work and the [architecture notes](docs/architecture.md) for implementation details.
 
 ## License
 
 [MIT](LICENSE). Runtime dependency notices are in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). No source is copied from dsh-qa.
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

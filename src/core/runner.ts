@@ -1,6 +1,7 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import type { Readable } from 'node:stream';
 import type { ExecutionEvidence } from './types.js';
 import { errorMessage } from './errors.js';
 
@@ -73,14 +74,27 @@ export async function runCommand(
     delete environment.NODE_TEST_CONTEXT;
     // No shell expansion, pipes, redirects, or interpolation. Windows .cmd files
     // need an explicitly configured interpreter; they are not silently shelled.
-    const child = spawn(executable, command.slice(1), {
-      cwd,
-      env: environment,
-      shell: false,
-      detached: process.platform !== 'win32',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const onSpawnError = (err: unknown): void => {
+      if (state === 'exited') {
+        state = 'spawn-error';
+        error = `Could not start ${executable}: ${errorMessage(err)}. Check the executable and working directory.`;
+      }
+    };
+    let child: ChildProcessByStdio<null, Readable, Readable>;
+    try {
+      child = spawn(executable, command.slice(1), {
+        cwd,
+        env: environment,
+        shell: false,
+        detached: process.platform !== 'win32',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      onSpawnError(err);
+      resolve();
+      return;
+    }
     let escalation: NodeJS.Timeout | undefined;
     const killTree = (signal: NodeJS.Signals): void => {
       if (!child.pid) return;
@@ -125,12 +139,7 @@ export async function runCommand(
       stderrHash.update(data);
       capture(data, stderr);
     });
-    child.on('error', (err) => {
-      if (state === 'exited') {
-        state = 'spawn-error';
-        error = `Could not start ${executable}: ${errorMessage(err)}. Check the executable and working directory.`;
-      }
-    });
+    child.on('error', onSpawnError);
     child.on('close', (code, signal) => {
       clearTimeout(deadline);
       options.signal?.removeEventListener('abort', onAbort);

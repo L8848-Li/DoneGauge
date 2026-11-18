@@ -12,6 +12,7 @@ const gitEnv = {
   GIT_PAGER: 'cat',
   LC_ALL: 'C',
 };
+const unmergedStatusCodes = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
 
 async function git(
   root: string,
@@ -89,10 +90,12 @@ export function parseNameStatus(text: string): ChangedFile[] {
 
 function workingStatus(text: string): {
   untracked: string[];
+  unmerged: string[];
   fingerprint: string;
 } {
   const tokens = text.split('\0');
-  const paths: string[] = [];
+  const untracked: string[] = [];
+  const unmerged: string[] = [];
   const entries: string[] = [];
   for (let i = 0; i < tokens.length; i++) {
     const entry = tokens[i];
@@ -105,11 +108,12 @@ function workingStatus(text: string): {
     )
       continue;
     entries.push(entry);
-    if (code === '??') paths.push(path);
+    if (code === '??') untracked.push(path);
+    if (unmergedStatusCodes.has(code)) unmerged.push(path);
     if (code.includes('R') || code.includes('C'))
       entries.push(tokens[++i] ?? '');
   }
-  return { untracked: paths, fingerprint: entries.join('\0') };
+  return { untracked, unmerged, fingerprint: entries.join('\0') };
 }
 
 async function untrackedHash(
@@ -190,6 +194,15 @@ export async function collectChanges(
   );
   const working = workingStatus(status);
   const untracked = working.untracked;
+  if (working.unmerged.length > 0) {
+    // A diff against a commit can report an unmerged path as modified or omit it.
+    const filesByPath = new Map(files.map((file) => [file.path, file]));
+    for (const path of working.unmerged) {
+      const file = filesByPath.get(path);
+      if (file) file.status = 'unmerged';
+      else files.push({ path, status: 'unmerged', untracked: false });
+    }
+  }
   const diffResult = await git(
     root,
     [...diffArgs, '--binary', '--full-index', diffBase, '--'],

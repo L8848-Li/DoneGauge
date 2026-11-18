@@ -17,6 +17,8 @@ import { loadConfig } from '../dist/src/core/config.js';
 import { runCommand } from '../dist/src/core/runner.js';
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const [tarballPath, ...extraArgs] = process.argv.slice(2);
+assert.equal(extraArgs.length, 0, 'Usage: npm run test:dsh-host -- [tarball]');
 const temporary = await realpath(
   await mkdtemp(join(tmpdir(), 'donegauge-dsh-host-')),
 );
@@ -26,7 +28,8 @@ await cp(join(source, 'examples/node-registration'), project, {
 });
 const init = await runCommand(['git', 'init', '-q'], project);
 assert.equal(init.exitCode, 0, init.stderr);
-const approval = (await loadConfig(project)).sha256;
+const configPath = 'donegauge.junit.json';
+const approval = (await loadConfig(project, configPath)).sha256;
 const resultPath = join(temporary, 'host-result.json');
 const smokePath = join(temporary, 'smoke.mjs');
 await writeFile(
@@ -70,6 +73,7 @@ await writeFile(
 - id: donegauge
   config:
     root: ${JSON.stringify(project)}
+    configPath: ${JSON.stringify(configPath)}
     approvedConfigSha256: ${JSON.stringify(approval)}
 `,
 );
@@ -103,11 +107,25 @@ const version = await runCommand(
   { env },
 );
 assert.equal(version.exitCode, 0, version.stderr);
-assert.equal(
-  version.stdout.trim(),
-  '0.2.2-rc.3',
-  'This adapter is verified only against DSH 0.2.2-rc.3.',
-);
+
+let tarball;
+if (tarballPath) {
+  tarball = await realpath(tarballPath);
+} else {
+  const packed = await runCommand(
+    [
+      'npm',
+      'pack',
+      '--ignore-scripts',
+      '--json',
+      '--pack-destination',
+      temporary,
+    ],
+    source,
+  );
+  assert.equal(packed.exitCode, 0, packed.stderr + packed.stdout);
+  tarball = join(temporary, JSON.parse(packed.stdout)[0].filename);
+}
 const installed = await runCommand(
   [
     executable,
@@ -116,7 +134,8 @@ const installed = await runCommand(
     '--profile',
     'donegauge-smoke',
     'add',
-    source,
+    tarball,
+    '--ignore-scripts',
   ],
   project,
   { env, timeoutMs: 30_000 },
@@ -136,7 +155,7 @@ const dump = await runCommand(
   { env },
 );
 assert.equal(dump.exitCode, 0, dump.stderr + dump.stdout);
-assert.match(dump.stdout, /donegauge/);
+assert.match(dump.stdout, /donegauge\/dsh/);
 const host = spawn(
   executable,
   [...prefix, '--profile', 'donegauge-smoke', '--patch', patch],
@@ -175,15 +194,21 @@ try {
   const report = JSON.parse(
     await readFile(join(project, result.value.reports.json), 'utf8'),
   );
-  assert.ok(
-    report.criteria.every(
-      (criterion) =>
-        criterion.evidence?.state === 'exited' &&
-        criterion.evidence.exitCode === 0,
-    ),
-  );
+  for (const [index, criterion] of report.criteria.entries()) {
+    assert.equal(criterion.evidence?.state, 'exited');
+    assert.equal(criterion.evidence.exitCode, 0);
+    assert.equal(criterion.testEvidence.counts.executedTargets, 1);
+    assert.equal(criterion.testEvidence.executionId, criterion.evidence.id);
+    const returned = result.value.criteria[index];
+    assert.equal(returned.executedTargetTests, 1);
+    assert.equal(returned.evidenceId, criterion.evidence.id);
+    assert.equal(returned.testEvidencePath, criterion.testEvidence.source.path);
+    assert.ok(
+      (await readFile(join(project, returned.testEvidencePath))).length,
+    );
+  }
   console.log(
-    `Installed DSH ${version.stdout.trim()}: donegauge_check invoked through the official CLI, profile loader, and tool executor; 3 real checks passed.`,
+    `DSH ${version.stdout.trim()}: installed ${tarball}, dispatched donegauge_check, and verified 3 named tests with saved JUnit evidence.`,
   );
   console.log(`Isolated host evidence: ${resultPath}`);
 } finally {

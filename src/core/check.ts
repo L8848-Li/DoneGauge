@@ -13,6 +13,7 @@ import {
   readJunitEvidence,
 } from './junit.js';
 import { evaluateJunit } from './junit-evaluator.js';
+import { version } from './version.js';
 import type {
   AcceptanceReport,
   CriterionResult,
@@ -235,7 +236,7 @@ export async function checkAcceptance(
   for (const criterion of criteria) summary[criterion.status]++;
   return {
     reportVersion: 1,
-    toolVersion: '0.1.0',
+    toolVersion: version,
     runId,
     task: loaded.config.task,
     config: { path: loaded.path, sha256: loaded.sha256 },

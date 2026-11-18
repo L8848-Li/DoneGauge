@@ -7,7 +7,7 @@ own work accepted.
 ## Local development
 
 Use Node.js 22 or newer, npm, Git, and Python 3 for the integration example.
-The optional DSH integration requires Node.js 24.9+ and DSH 0.2.2-rc.3.
+The optional DSH integration requires Node.js 24.9+ and a [supported DSH version](docs/dsh.md).
 
 ```sh
 npm ci --ignore-scripts

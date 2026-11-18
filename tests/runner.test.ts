@@ -52,6 +52,15 @@ test('missing executable is ERROR rather than FAIL', async (t) => {
   assert.match(result.error ?? '', /Check the executable/);
 });
 
+test('oversized arguments yield ERROR even when spawn throws synchronously', async (t) => {
+  const command = [process.execPath, '--version', 'x'.repeat(2 * 1024 * 1024)];
+  const result = await runCommand(command, await tempDirectory(t));
+  assert.equal(result.state, 'spawn-error');
+  assert.equal(result.exitCode, null);
+  assert.equal(evaluate({ command }, result).status, 'ERROR');
+  assert.match(result.error ?? '', /Could not start/);
+});
+
 test('timeout terminates a real long-running process', async (t) => {
   const result = await runCommand(
     [process.execPath, '-e', 'setInterval(()=>{},1000)'],

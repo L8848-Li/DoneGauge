@@ -39,6 +39,26 @@ test('preserves duplicate names and requires review for file wrappers, retries a
   );
 });
 
+test('Node diagnostics distinguish location-less file wrappers from named tests and other dialects', () => {
+  const cases = `<testcase name="nested/auth.test.mjs" classname="test"/>
+    <testcase name="loads index.js at startup" classname="test"/>`;
+  const nodeDiagnostics = `<!-- tests 2 --><!-- suites 0 --><!-- pass 2 -->
+    <!-- fail 0 --><!-- cancelled 0 --><!-- skipped 0 --><!-- todo 0 -->
+    <!-- duration_ms 31.032 -->`;
+  assert.deepEqual(
+    parseJunit(`<testsuites>${cases}${nodeDiagnostics}</testsuites>`).cases.map(
+      (item) => item.outcome,
+    ),
+    ['unverified', 'passed'],
+  );
+  assert.deepEqual(
+    parseJunit(`<testsuites>${cases}</testsuites>`).cases.map(
+      (item) => item.outcome,
+    ),
+    ['passed', 'passed'],
+  );
+});
+
 for (const [name, xml] of [
   ['empty document', ''],
   ['malformed XML', '<testsuite><testcase></testsuite>'],

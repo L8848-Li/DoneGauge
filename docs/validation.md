@@ -121,3 +121,26 @@ The first Ubuntu CI run caught immediate inode reuse after an evidence directory
 was deleted and recreated. Collection now holds the original directory open
 through execution and parsing, preventing inode recycling from disguising that
 replacement. The existing replacement regression remains enabled on both systems.
+
+## Market preview preparation (2026-11-18)
+
+- The full local Node.js 24.16.0 suite passed **110 tests** with Python 3.12 and
+  pytest 9.2.0. Node.js 22.23.5 passed **103 core and CLI tests**. The new hosted
+  CI leg will exercise Node 22 and the package install independently of DSH.
+- A prebuilt tarball installed into disposable DSH profiles on **0.2.2-rc.3 and
+  0.2.2-rc.4** with lifecycle scripts disabled. Each host dispatched the tool
+  through the native executor and verified three exact Node test names against
+  saved JUnit XML. The standalone package smoke installed the archive with no
+  DSH packages and verified the command and JUnit examples.
+- Added regressions for unresolved Git conflicts, synchronous process launch
+  errors, and location-less Node 22 JUnit file wrapper records.
+- DeepSeek Harness Desktop **0.2.2-rc.3** loaded the preview tarball and a live
+  model invoked `donegauge_check` against the mixed fixture. The saved report
+  had one result in each of PASS, FAIL, UNVERIFIED, and ERROR. After the fixture
+  config changed, a second tool call rejected the stale digest and produced no
+  new report or JUnit directory. The initial run exposed missing execution IDs
+  for command checks in the card text. The renderer now includes each available
+  evidence ID, covered by the official-runtime regression suite.
+
+See the [release guide](release.zh-CN.md) to build and verify one archive before
+uploading it.

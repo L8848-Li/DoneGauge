@@ -164,6 +164,10 @@ explicitly (for example `test_total[decimal]`). A missing name, a duplicate with
 a disambiguating class, skip/todo, Node's file-path wrapper, or unsupported retry
 metadata requires review. Suites are containers and never count as assertions.
 If several selectors select the same case, it counts once toward `minExecuted`.
+Some Node.js reporters omit source locations. When the report contains Node's
+test-runner diagnostics, a top-level `test` record named like a JavaScript or
+TypeScript file without a source location is ambiguous and requires review. Give
+the assertion its own descriptive name to distinguish it from a file wrapper.
 
 Each authorized check gets a new empty private directory at
 `.donegauge/evidence/<run-id>/<check-id>/`. Only the fixed `{evidenceDir}` token is

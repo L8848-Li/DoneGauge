@@ -6,6 +6,7 @@ import { checkAcceptance } from './core/check.js';
 import { isWithin, loadConfig } from './core/config.js';
 import { DoneGaugeError, errorMessage } from './core/errors.js';
 import { repositoryRoot } from './core/git.js';
+import { version } from './core/version.js';
 import {
   renderJson,
   renderTerminal,
@@ -13,7 +14,7 @@ import {
   writeReports,
 } from './reporters/index.js';
 
-const help = `DoneGauge 0.1.0 — Know what's done. See what's verified.
+const help = `DoneGauge ${version} — Know what's done. See what's verified.
 
 Usage:
   donegauge init [--cwd DIR] [--config FILE]
@@ -61,7 +62,7 @@ function argumentsFromCli() {
 async function main(): Promise<number> {
   const { values, positionals } = argumentsFromCli();
   if (values.version) {
-    process.stdout.write('0.1.0\n');
+    process.stdout.write(`${version}\n`);
     return 0;
   }
   if (values.help || positionals.length === 0) {

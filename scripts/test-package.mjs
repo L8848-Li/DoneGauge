@@ -8,6 +8,7 @@ import {
   readdir,
   realpath,
   rm,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -17,35 +18,29 @@ import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const [tarballPath, ...extraArgs] = process.argv.slice(2);
+assert.equal(extraArgs.length, 0, 'Usage: npm run test:package -- [tarball]');
+const { version } = JSON.parse(
+  await readFile(join(source, 'package.json'), 'utf8'),
+);
 const temporary = await realpath(
   await mkdtemp(join(tmpdir(), 'donegauge-package-')),
 );
 const consumer = join(temporary, 'consumer');
 await mkdir(consumer);
 try {
-  await execute('npm', ['run', 'build'], { cwd: source });
-  const packed = await execute(
-    'npm',
-    ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary],
-    { cwd: source },
-  );
-  const metadata = JSON.parse(packed.stdout)[0];
-  assert.ok(
-    metadata.files.some((file) => file.path === 'schema/donegauge.schema.json'),
-  );
-  assert.ok(metadata.files.some((file) => file.path === 'dist/src/cli.js'));
-  assert.ok(
-    metadata.files.some(
-      (file) => file.path === 'dist/src/adapters/dsh/index.js',
-    ),
-  );
-  assert.ok(
-    !metadata.files.some(
-      (file) =>
-        file.path.startsWith('dist/tests/') ||
-        file.path.includes('.donegauge/'),
-    ),
-  );
+  let tarball;
+  if (tarballPath) {
+    tarball = await realpath(tarballPath);
+  } else {
+    await execute('npm', ['run', 'build'], { cwd: source });
+    const packed = await execute(
+      'npm',
+      ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary],
+      { cwd: source },
+    );
+    tarball = join(temporary, JSON.parse(packed.stdout)[0].filename);
+  }
   await writeFile(
     join(consumer, 'package.json'),
     JSON.stringify({
@@ -64,7 +59,7 @@ try {
       '--ignore-scripts',
       '--no-audit',
       '--no-fund',
-      join(temporary, metadata.filename),
+      tarball,
     ],
     { cwd: consumer },
   );
@@ -72,10 +67,22 @@ try {
     !(await readdir(join(consumer, 'node_modules'))).includes('@deepseek-ai'),
     'Standalone CLI must not require DSH packages.',
   );
+  const installed = join(consumer, 'node_modules', 'donegauge');
+  const files = await readdir(installed, { recursive: true });
+  for (const file of [
+    'cordis.patch.yml',
+    'schema/donegauge.schema.json',
+    'dist/src/cli.js',
+    'dist/src/adapters/dsh/index.js',
+  ]) {
+    assert.ok(files.includes(file), `Missing installed file: ${file}`);
+  }
+  assert.ok(!files.includes('dist/tests'));
+  assert.ok(!files.some((file) => file.split('/').includes('.donegauge')));
   const bin = join(consumer, 'node_modules', '.bin', 'donegauge');
   assert.equal(
     (await execute(bin, ['--version'], { cwd: consumer })).stdout.trim(),
-    '0.1.0',
+    version,
   );
   await cp(join(source, 'examples/node-registration'), consumer, {
     recursive: true,
@@ -87,6 +94,7 @@ try {
     maxBuffer: 10 * 1024 * 1024,
   });
   const report = JSON.parse(checked.stdout);
+  assert.equal(report.toolVersion, version);
   assert.equal(report.finalStatus, 'VERIFIED');
   assert.equal(report.summary.PASS, 3);
   assert.ok(
@@ -100,6 +108,10 @@ try {
       ),
     ).runId,
     report.runId,
+  );
+  assert.ok(
+    (await stat(join(consumer, `.donegauge/runs/${report.runId}/report.md`)))
+      .size > 0,
   );
   const junitChecked = await execute(
     bin,
@@ -121,7 +133,7 @@ try {
     );
   }
   console.log(
-    `Package install smoke passed: installed executable 0.1.0, no DSH dependency, 3 command + 3 JUnit real acceptance checks, JSON and Markdown reports. ${metadata.files.length} files, ${metadata.size} packed bytes.`,
+    `Package install smoke passed: installed ${tarball} (${(await stat(tarball)).size} bytes), executable ${version}, 3 command + 3 JUnit checks with local evidence.`,
   );
 } finally {
   await rm(temporary, { recursive: true, force: true });

@@ -47,6 +47,22 @@ export function parseJunit(xml: string): {
   const stack: Frame[] = [];
   const cases: TestCaseEvidence[] = [];
   const problems = new Set<string>();
+  const possibleNodeWrappers: TestCaseEvidence[] = [];
+  const nodeDiagnostics = new Set([
+    'tests',
+    'suites',
+    'pass',
+    'fail',
+    'cancelled',
+    'skipped',
+    'todo',
+    'duration_ms',
+  ]);
+  parser.oncomment = (comment) => {
+    if (stack.length !== 1 || stack[0]?.tag !== 'testsuites') return;
+    const key = /^\s*([a-z_]+) \d+(?:\.\d+)?\s*$/.exec(comment)?.[1];
+    if (key) nodeDiagnostics.delete(key);
+  };
   let seen = 0;
   let roots = 0;
   const numeric = (
@@ -148,8 +164,17 @@ export function parseJunit(xml: string): {
         normalizedFile &&
         (normalizedFile === normalizedName ||
           normalizedFile.endsWith(`/${normalizedName}`))
-      )
+      ) {
         frame.test.outcome = 'unverified';
+      } else if (
+        !normalizedFile &&
+        parent.tag === 'testsuites' &&
+        stack.length === 1 &&
+        attrs.classname === 'test' &&
+        /\.(?:[cm]?[jt]s)$/i.test(normalizedName)
+      ) {
+        possibleNodeWrappers.push(frame.test);
+      }
     } else if (
       ['testsuite', 'testsuites'].includes(tag.name) &&
       parent &&
@@ -232,6 +257,13 @@ export function parseJunit(xml: string): {
     parser.write(xml.slice(offset, offset + 4096));
   parser.close();
   if (roots !== 1) throw new Error('JUnit XML is empty or missing its root.');
+  // Node 22 omits file locations, so file-path wrapper names in its diagnostic
+  // format are ambiguous. Keep normal named assertions and other dialects intact.
+  if (nodeDiagnostics.size === 0) {
+    for (const item of possibleNodeWrappers) {
+      if (item.outcome === 'passed') item.outcome = 'unverified';
+    }
+  }
   return { cases, problems: [...problems] };
 }
 

@@ -85,6 +85,7 @@ test('DSH returns domain failures and execution errors as distinct structured st
   const value = result.value as unknown as {
     summary: object;
     finalStatus: string;
+    criteria: { status: string; evidenceId: string }[];
   };
   assert.deepEqual(value.summary, {
     PASS: 1,
@@ -93,6 +94,17 @@ test('DSH returns domain failures and execution errors as distinct structured st
     ERROR: 1,
   });
   assert.equal(value.finalStatus, 'REVIEW REQUIRED');
+  const card = result.content
+    .map((content) => (content.type === 'text' ? content.text : ''))
+    .join('\n');
+  for (const criterion of value.criteria) {
+    if (criterion.status === 'UNVERIFIED') {
+      assert.equal(criterion.evidenceId, '');
+    } else {
+      assert.ok(criterion.evidenceId);
+      assert.ok(card.includes(`Evidence ID: ${criterion.evidenceId}.`));
+    }
+  }
 });
 
 test('DSH tool rejects arbitrary model arguments and missing human approval', async (t) => {
