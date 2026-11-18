@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
-import { relative, resolve } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { loadConfig, projectPath, sha256 } from './config.js';
 import { DoneGaugeError, errorMessage } from './errors.js';
@@ -122,7 +122,9 @@ export async function checkAcceptance(
                 '{evidenceDir}',
                 junitDirectory.directory,
               ),
-            ),
+            )
+              .split(sep)
+              .join('/'),
             sha256: null,
             bytes: null,
           },

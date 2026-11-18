@@ -388,7 +388,7 @@ export async function readJunitEvidence(
       throw new Error('JUnit report changed while being read.');
     const bytes = data.subarray(0, length);
     return {
-      path: relative(root, target),
+      path: relative(root, target).split(sep).join('/'),
       bytes: length,
       sha256: sha256(bytes),
       data: bytes,
