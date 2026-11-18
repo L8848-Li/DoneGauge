@@ -7,6 +7,7 @@ import { errorMessage } from '../../core/errors.js';
 import { repositoryRoot } from '../../core/git.js';
 import { writeReports } from '../../reporters/index.js';
 import { cardKind } from './card-data.js';
+import { renderModelResult } from './model-result.js';
 
 export const name = 'donegauge';
 export const inject = ['tools'];
@@ -46,7 +47,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
     defineTool({
       name: 'donegauge_check',
       description:
-        'Run the human-approved DoneGauge acceptance configuration for the bound project. Use when the user requests acceptance verification. Returns statuses and local evidence paths. Accepts no commands or paths.',
+        'Run the approved project checks once per acceptance verification request. No arguments.',
       parameters: {},
       output: {
         schema: {
@@ -90,6 +91,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
                   targetTests: { type: 'integer', required: true },
                   executedTargetTests: { type: 'integer', required: true },
                   testEvidencePath: { type: 'string', required: true },
+                  testEvidenceAvailable: { type: 'boolean', required: true },
                   targetTestResults: {
                     type: 'array',
                     required: true,
@@ -127,7 +129,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
         render: (_args, value) => [
           {
             type: 'text',
-            text: `${value.text}\nReports: ${value.reports.markdown}\n         ${value.reports.json}`,
+            text: value.text,
           },
         ],
         presentationMeta: (
@@ -174,7 +176,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
           });
           exec.signal.throwIfAborted();
           const reports = await writeReports(root, report);
-          return {
+          const result = {
             runId: report.runId,
             task: report.task,
             finalStatus: report.finalStatus,
@@ -198,6 +200,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
               targetTests: c.testEvidence?.counts.targets ?? 0,
               executedTargetTests: c.testEvidence?.counts.executedTargets ?? 0,
               testEvidencePath: c.testEvidence?.source.path ?? '',
+              testEvidenceAvailable: c.testEvidence?.source.bytes != null,
               targetTestResults:
                 c.testEvidence?.selections.map((s) => ({
                   name: s.selector.name,
@@ -213,35 +216,8 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
             })),
             reports,
             warnings: report.warnings,
-            text: [
-              `DoneGauge: ${report.task}`,
-              `${report.summary.PASS} verified, ${report.summary.FAIL} failed, ${report.summary.UNVERIFIED} unverified, ${report.summary.ERROR} errors`,
-              ...report.criteria.map((c) => {
-                const summary = `[${c.status}] ${c.id}: ${c.reason}`;
-                const evidence = c.evidence
-                  ? ` Evidence ID: ${c.evidence.id}.`
-                  : '';
-                const junit = c.testEvidence;
-                if (!junit) return summary + evidence;
-                const tests = junit.selections.map((selection) => {
-                  const outcome =
-                    selection.matches.length === 1
-                      ? junit.cases[selection.matches[0]!]!.outcome
-                      : selection.matches.length
-                        ? 'ambiguous'
-                        : 'missing';
-                  return `${selection.selector.name}: ${outcome}`;
-                });
-                return (
-                  summary +
-                  evidence +
-                  ` Targets executed: ${junit.counts.executedTargets}/${junit.counts.targets}; XML: ${junit.source.path}; tests: ${tests.join(', ')}`
-                );
-              }),
-              ...report.warnings,
-              `Final status: ${report.finalStatus}`,
-            ].join('\n'),
           };
+          return { ...result, text: renderModelResult(result) };
         } catch (error) {
           exec.signal.throwIfAborted();
           if (error instanceof ToolArgsError) throw error;

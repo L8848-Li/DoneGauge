@@ -5,6 +5,7 @@ await build({
   outfile: 'dist/src/adapters/dsh/client.js',
   bundle: true,
   format: 'cjs',
+  loader: { '.css': 'text' },
   // The DSH Web/desktop shell supplies the same React instance as its own cards.
   external: ['react', 'react/jsx-runtime'],
   banner: {

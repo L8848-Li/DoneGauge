@@ -1,5 +1,10 @@
-import type { CSSProperties } from 'react';
-import { isEvidencePath, readCardData, statuses } from './card-data.js';
+import {
+  byReviewPriority,
+  isEvidencePath,
+  readCardData,
+  statuses,
+} from './card-data.js';
+import stylesheet from './card.css';
 
 interface ToolViewProps {
   phase: 'preparing' | 'start' | 'result';
@@ -12,52 +17,7 @@ interface ToolViewProps {
   openFile: (path: string) => void;
 }
 
-const tones = {
-  PASS: '#26a269',
-  FAIL: '#e05252',
-  UNVERIFIED: '#cb9425',
-  ERROR: '#b970d6',
-};
-const border = '1px solid color-mix(in srgb, currentColor 18%, transparent)';
-const cardStyle: CSSProperties = {
-  display: 'grid',
-  gap: 12,
-  border,
-  borderRadius: 10,
-  padding: 14,
-  marginBlock: 6,
-  color: 'inherit',
-  fontSize: '0.875rem',
-  lineHeight: 1.45,
-  overflowWrap: 'anywhere',
-};
-const rowStyle: CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'baseline',
-  gap: 8,
-};
-const muted: CSSProperties = { opacity: 0.76 };
-
-function ResultBadge({ status }: { status: keyof typeof tones }) {
-  const accent = tones[status];
-  return (
-    <span
-      style={{
-        padding: '2px 7px',
-        borderRadius: 6,
-        borderLeft: `3px solid ${accent}`,
-        background: `color-mix(in srgb, ${accent} 13%, transparent)`,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {status}
-    </span>
-  );
-}
-
-function FileLink({
+function FileButton({
   label,
   path,
   open,
@@ -69,18 +29,12 @@ function FileLink({
   return (
     <button
       type="button"
+      className="dg-file"
       title={path}
-      style={{
-        color: 'inherit',
-        border,
-        borderRadius: 6,
-        background: 'transparent',
-        padding: '3px 8px',
-        cursor: 'pointer',
-      }}
       onClick={() => open(path)}
     >
       {label}
+      <span aria-hidden="true">↗</span>
     </button>
   );
 }
@@ -102,101 +56,154 @@ function DoneGaugeCard({ phase, block, openFile }: ToolViewProps) {
           'The tool did not return a displayable result.'
         : 'Checking acceptance…';
     return (
-      <section aria-label="DoneGauge acceptance" style={cardStyle}>
-        <strong>
-          {block.isError ? 'DoneGauge · check unavailable' : 'DoneGauge'}
-        </strong>
-        <div style={{ whiteSpace: 'pre-wrap', ...muted }}>{message}</div>
+      <section
+        aria-label="DoneGauge acceptance"
+        className="dg-card"
+        data-outcome={block.isError ? 'review' : undefined}
+      >
+        <header className="dg-header">
+          <strong>
+            {block.isError ? 'DoneGauge · Check unavailable' : 'DoneGauge'}
+          </strong>
+          <div
+            className="dg-message"
+            role={phase === 'result' ? undefined : 'status'}
+          >
+            {message}
+          </div>
+        </header>
       </section>
     );
   }
 
+  const verified = data.finalStatus === 'VERIFIED';
   return (
-    <section aria-label="DoneGauge acceptance" style={cardStyle}>
-      <header>
-        <div style={{ ...rowStyle, justifyContent: 'space-between' }}>
-          <strong>DoneGauge</strong>
-          <strong>{data.finalStatus}</strong>
-        </div>
-        <div style={muted}>{data.task}</div>
-      </header>
-      <div
-        aria-label="Acceptance status counts"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(98px, 1fr))',
-          gap: 6,
-        }}
-      >
-        {statuses.map((status) => (
-          <div key={status} style={{ ...rowStyle, gap: 5 }}>
-            <ResultBadge status={status} />
-            <strong>{data.summary[status]}</strong>
+    <section
+      aria-label="DoneGauge acceptance"
+      className="dg-card"
+      data-outcome={verified ? 'verified' : 'review'}
+    >
+      <header className="dg-header">
+        <div className="dg-heading">
+          <span className="dg-mark" aria-hidden="true">
+            {verified ? '✓' : '!'}
+          </span>
+          <div className="dg-identity">
+            <strong>DoneGauge</strong>
+            <div className="dg-task">{data.task}</div>
           </div>
-        ))}
-      </div>
-      {data.warnings.map((warning, index) => (
-        <div key={index} style={muted}>
-          {warning}
+          <strong className="dg-outcome">{data.finalStatus}</strong>
         </div>
-      ))}
-      <div>
-        {data.criteria.map((criterion, index) => (
-          <details
-            key={`${criterion.id}-${index}`}
-            style={{ borderTop: border, padding: '8px 0' }}
-          >
-            <summary style={{ cursor: 'pointer' }}>
-              <ResultBadge status={criterion.status} />{' '}
-              <strong>{criterion.id}</strong>
-              <span style={{ ...muted, marginLeft: 7 }}>
-                {criterion.reason}
-              </span>
-            </summary>
-            <div style={{ display: 'grid', gap: 6, margin: '8px 0 0 12px' }}>
-              {criterion.execution && (
-                <div>Execution · {criterion.execution}</div>
-              )}
-              <div>
-                Evidence ID · <code>{criterion.evidenceId || 'None'}</code>
-              </div>
-              {criterion.targetTests > 0 && (
-                <div>
-                  JUnit targets executed · {criterion.executedTargetTests}/
-                  {criterion.targetTests}
-                </div>
-              )}
-              {criterion.targetTestResults.length > 0 && (
-                <ul style={{ paddingInlineStart: 20, margin: 0 }}>
-                  {criterion.targetTestResults.map((item, itemIndex) => (
-                    <li key={itemIndex}>
-                      {item.className ? `${item.className} › ` : ''}
-                      {item.name} · {item.outcome}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {isEvidencePath(criterion.testEvidencePath, data.runId) && (
-                <div style={rowStyle}>
-                  <FileLink
-                    label="JUnit XML"
-                    path={criterion.testEvidencePath}
-                    open={openFile}
-                  />
-                  <code style={muted}>{criterion.testEvidencePath}</code>
-                </div>
-              )}
+        <div className="dg-progress" aria-hidden="true">
+          {statuses
+            .filter((status) => data.summary[status] > 0)
+            .map((status) => (
+              <span
+                key={status}
+                data-status={status}
+                style={{ flexGrow: data.summary[status] }}
+              />
+            ))}
+        </div>
+        <dl className="dg-counts" aria-label="Acceptance status counts">
+          {statuses.map((status) => (
+            <div key={status} className="dg-count" data-status={status}>
+              <dt>{status}</dt>
+              <dd>{data.summary[status]}</dd>
             </div>
-          </details>
-        ))}
+          ))}
+        </dl>
+      </header>
+      {data.warnings.length > 0 && (
+        <ul className="dg-warnings" aria-label="Verification warnings">
+          {data.warnings.map((warning, index) => (
+            <li key={index}>{warning}</li>
+          ))}
+        </ul>
+      )}
+      <div className="dg-criteria">
+        {byReviewPriority(data.criteria).map((criterion, index) => {
+          const hasXml = isEvidencePath(criterion.testEvidencePath, data.runId);
+          return (
+            <details
+              className="dg-criterion"
+              data-status={criterion.status}
+              key={`${criterion.id}-${index}`}
+            >
+              <summary>
+                <span className="dg-badge">{criterion.status}</span>
+                <span className="dg-criterion-label">
+                  <strong>{criterion.id}</strong>{' '}
+                  <span>{criterion.reason}</span>
+                </span>
+                <span className="dg-chevron" aria-hidden="true" />
+              </summary>
+              <div className="dg-detail">
+                <dl className="dg-facts">
+                  {criterion.execution && (
+                    <div>
+                      <dt>Execution</dt>
+                      <dd>{criterion.execution}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Evidence ID</dt>
+                    <dd>
+                      {criterion.evidenceId ? (
+                        <code>{criterion.evidenceId}</code>
+                      ) : (
+                        'No execution evidence'
+                      )}
+                    </dd>
+                  </div>
+                  {criterion.targetTests > 0 && (
+                    <div>
+                      <dt>JUnit targets executed</dt>
+                      <dd>
+                        {criterion.executedTargetTests}/{criterion.targetTests}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                {criterion.targetTestResults.length > 0 && (
+                  <ul className="dg-tests">
+                    {criterion.targetTestResults.map((item, itemIndex) => (
+                      <li key={itemIndex}>
+                        <span>
+                          {item.className ? `${item.className} › ` : ''}
+                          {item.name}
+                        </span>
+                        <strong>{item.outcome}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {hasXml && (
+                  <div className="dg-xml">
+                    {criterion.testEvidenceAvailable === false ? (
+                      <span>JUnit XML unavailable</span>
+                    ) : (
+                      <FileButton
+                        label="JUnit XML"
+                        path={criterion.testEvidencePath}
+                        open={openFile}
+                      />
+                    )}
+                    <code>{criterion.testEvidencePath}</code>
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
       </div>
-      <footer style={rowStyle}>
-        <FileLink
+      <footer className="dg-footer" aria-label="Local reports">
+        <FileButton
           label="Markdown report"
           path={data.reports.markdown}
           open={openFile}
         />
-        <FileLink
+        <FileButton
           label="JSON report"
           path={data.reports.json}
           open={openFile}
@@ -210,6 +217,7 @@ const slot = 'tool.call.toolview';
 export const inject = ['slots'];
 
 interface ClientContext {
+  on(event: 'dispose', listener: () => void): unknown;
   slots: {
     inject(name: typeof slot, register: () => void): void;
     register(
@@ -220,6 +228,13 @@ interface ClientContext {
 }
 
 export function apply(ctx: ClientContext): void {
+  if (typeof document !== 'undefined') {
+    const style = document.createElement('style');
+    style.dataset.plugin = 'donegauge';
+    style.textContent = stylesheet;
+    document.head.append(style);
+    ctx.on('dispose', () => style.remove());
+  }
   ctx.slots.inject(slot, () => {
     ctx.slots.register({ name: slot, key: 'donegauge_check' }, DoneGaugeCard);
   });

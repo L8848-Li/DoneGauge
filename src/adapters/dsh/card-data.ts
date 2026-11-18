@@ -1,6 +1,20 @@
 export const cardKind = 'donegauge.acceptance.v1';
 export const statuses = ['PASS', 'FAIL', 'UNVERIFIED', 'ERROR'] as const;
 type Status = (typeof statuses)[number];
+const reviewPriority: Record<Status, number> = {
+  ERROR: 0,
+  FAIL: 1,
+  UNVERIFIED: 2,
+  PASS: 3,
+};
+
+export function byReviewPriority<T extends { status: Status }>(
+  items: readonly T[],
+): T[] {
+  return [...items].sort(
+    (left, right) => reviewPriority[left.status] - reviewPriority[right.status],
+  );
+}
 
 interface CardCriterion {
   id: string;
@@ -11,6 +25,7 @@ interface CardCriterion {
   targetTests: number;
   executedTargetTests: number;
   testEvidencePath: string;
+  testEvidenceAvailable?: boolean;
   targetTestResults: { name: string; className: string; outcome: string }[];
 }
 
@@ -42,6 +57,8 @@ function isCriterion(value: unknown): value is CardCriterion {
       value.execution,
       value.testEvidencePath,
     ].every(isText) &&
+    (value.testEvidenceAvailable === undefined ||
+      typeof value.testEvidenceAvailable === 'boolean') &&
     isCount(value.targetTests) &&
     isCount(value.executedTargetTests) &&
     value.executedTargetTests <= value.targetTests &&

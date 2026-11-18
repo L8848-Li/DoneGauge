@@ -11,6 +11,7 @@ import * as native from '@deepseek-ai/dsh-tool-executor-native';
 import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit';
 import * as adapter from '../src/adapters/dsh/index.js';
 import { readCardData } from '../src/adapters/dsh/card-data.js';
+import { renderModelResult } from '../src/adapters/dsh/model-result.js';
 import { loadConfig } from '../src/core/config.js';
 import type { AcceptanceConfig, AcceptanceReport } from '../src/core/types.js';
 import { configWith, newRepo, saveConfig } from './helpers.js';
@@ -69,7 +70,7 @@ test('official DSH runtime registers and invokes real approved Node acceptance c
   assert.equal(report.criteria[0]?.evidence?.id, value.criteria[0]?.evidenceId);
   assert.match(
     result.content.map((c) => (c.type === 'text' ? c.text : '')).join(''),
-    /3 verified/,
+    /^VERIFIED · PASS 3 \/ FAIL 0 \/ UNVERIFIED 0 \/ ERROR 0/,
   );
 });
 
@@ -125,9 +126,53 @@ test('DSH returns domain failures and execution errors as distinct structured st
       assert.equal(criterion.evidenceId, '');
     } else {
       assert.ok(criterion.evidenceId);
-      assert.ok(card.includes(`Evidence ID: ${criterion.evidenceId}.`));
+      assert.ok(card.includes(`Evidence ID: ${criterion.evidenceId}`));
     }
   }
+});
+
+test('model output prioritizes review items and bounds diagnostic detail without changing totals', () => {
+  const markdown = '.donegauge/runs/id/report.md';
+  const json = '.donegauge/runs/id/report.json';
+  const text = renderModelResult({
+    finalStatus: 'REVIEW REQUIRED',
+    summary: { PASS: 98, FAIL: 1, UNVERIFIED: 0, ERROR: 1 },
+    criteria: [
+      ...Array.from({ length: 98 }, (_, index) => ({
+        id: `pass-${index}`,
+        status: 'PASS' as const,
+        evidenceId: `pass-id-${index}`,
+        reason: 'Long passing-test detail',
+      })),
+      {
+        id: 'failure',
+        status: 'FAIL',
+        evidenceId: 'fail-id',
+        reason: 'Check exited 1; expected 0.',
+      },
+      {
+        id: 'error',
+        status: 'ERROR',
+        evidenceId: 'error-id',
+        reason: `Cannot start command\n${'x'.repeat(2000)}`,
+      },
+    ],
+    reports: { markdown, json },
+    warnings: ['Project changed during verification.'],
+  });
+  assert.match(
+    text,
+    /^REVIEW REQUIRED · PASS 98 \/ FAIL 1 \/ UNVERIFIED 0 \/ ERROR 1\n\[ERROR\] error/,
+  );
+  assert.match(
+    text,
+    /\[FAIL\] failure · Check exited 1; expected 0\. · Evidence ID: fail-id/,
+  );
+  assert.match(text, /Showing 8\/100 criteria/);
+  assert.match(text, /Warning: Project changed during verification\./);
+  assert.ok(text.includes(markdown) && text.includes(json));
+  assert.doesNotMatch(text, /Long passing-test detail|pass-id-6|x{113}/);
+  assert.ok(text.length < 900);
 });
 
 test('DSH tool rejects arbitrary model arguments and missing human approval', async (t) => {
@@ -304,4 +349,12 @@ test('DSH JUnit results agree with disk JSON, Markdown and terminal for all four
       assert.ok(output.includes(actual.status));
     }
   }
+  const nativeText = result.content
+    .map((content) => (content.type === 'text' ? content.text : ''))
+    .join('');
+  assert.ok(nativeText.includes(value.reports.json));
+  assert.ok(
+    !nativeText.includes('/junit.xml'),
+    'The raw XML paths stay in structured output and the rendered card.',
+  );
 });

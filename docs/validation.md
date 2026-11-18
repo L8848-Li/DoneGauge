@@ -179,3 +179,15 @@ passed across Ubuntu, macOS and Windows on Node 24, and Ubuntu core/CLI on Node 
 Windows verified literal native arguments, explicit `.cmd` and `.bat` launch,
 timeout and cancellation of a real parent/child process pair, junction and
 path boundaries, and installed Node and Python demos.
+
+## Card layout and model payload (2026-11-18)
+
+The redesigned card was inspected in DSH Desktop 0.2.2-rc.3. In the mixed
+demo the model called the tool once, returned one of each status, and reported
+all three available evidence IDs and both report paths. Those values matched
+the saved JSON. The card displayed all four statuses and put review items first.
+
+Replaying the same example results through DSH's text estimator gave **326 to
+106** tokens for the three-pass JUnit response and **213 to 170** for the mixed
+response. The estimate applies to the native tool response text. The structured
+tool value and full local reports still carry the underlying evidence.

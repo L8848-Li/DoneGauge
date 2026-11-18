@@ -89,6 +89,14 @@ acceptance card. Use the workspace that matches the approved Git root so the
 report and JUnit buttons open files in that project. Earlier recorded results
 with text-only metadata remain readable in the tool group.
 
+The model-facing reply leads with the overall verdict and all four counts. It
+keeps exact evidence IDs, warnings and both report paths. For runs with more
+than eight criteria it shows the first eight by review priority and states how
+many are shown. Full criteria and JUnit details are available in the card, the
+canonical tool value and the reports. In the Node examples, DSH's text estimator
+priced the three-pass JUnit reply at 106 tokens, down from 326, and the mixed
+reply at 170, down from 213. These figures cover the tool replies.
+
 DSH's normal pre-execute tool policy can deny the call; cancellation propagates
 through `exec.signal`. The pinned configuration is an additional explicit
 deployment authorization. Checks execute as local host processes with your user
