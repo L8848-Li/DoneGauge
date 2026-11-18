@@ -26,7 +26,7 @@ pytest fails these tests rather than silently skipping acceptance coverage.
 They create disposable Git repositories; fixture commits never touch your working
 repository. All acceptance checks execute real local processes.
 
-##  Pull requests
+## Pull requests
 
 The [Protect main ruleset](https://github.com/L8848-Li/DoneGauge/rules/27529800)
 requires an up-to-date pull request with all four GitHub Actions checks passing.
