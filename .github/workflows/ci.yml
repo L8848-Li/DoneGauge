@@ -19,9 +19,13 @@ jobs:
             node: 24
           - os: macos-latest
             node: 24
+          - os: windows-latest
+            node: 24
           - os: ubuntu-latest
             node: 22
     runs-on: ${{ matrix.os }}
+    env:
+      DONEGAUGE_PYTHON: python
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,7 +37,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: python3 -m pip install -r tests/requirements.txt
+      - run: python -m pip install -r tests/requirements.txt
       - run: npm ci --ignore-scripts
       - run: npm run check
         if: matrix.node == 24

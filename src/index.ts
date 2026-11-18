@@ -14,3 +14,14 @@ export {
   writeReports,
 } from './reporters/index.js';
 export type * from './core/types.js';
+// The DSH client loader discovers bundles by bare package name. Lazily load
+// the optional host adapter so ordinary library imports never need DSH.
+export const name = 'donegauge';
+export const inject = ['tools'];
+export async function apply(ctx: unknown, config?: unknown): Promise<void> {
+  const adapter = await import('./adapters/dsh/index.js');
+  adapter.apply(
+    ctx as Parameters<typeof adapter.apply>[0],
+    config as Parameters<typeof adapter.apply>[1],
+  );
+}

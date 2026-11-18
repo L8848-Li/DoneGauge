@@ -94,7 +94,11 @@ test('config read has digest and rejects missing files and outside symlinks', as
   await writeFile(join(root, 'donegauge.json'), JSON.stringify(configWith()));
   assert.match((await loadConfig(root)).sha256, /^[a-f0-9]{64}$/);
   await assert.rejects(loadConfig(root, 'missing.json'), /Check the path/);
-  await symlink(other, join(root, 'outside'));
+  await symlink(
+    other,
+    join(root, 'outside'),
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
   await assert.rejects(
     projectPath(root, 'outside', 'working directory'),
     /inside the project/,

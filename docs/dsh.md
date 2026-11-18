@@ -84,7 +84,10 @@ The canonical JSON result contains run id, task, final status, four counts,
 criterion statuses/reasons/evidence ids, report paths, and human-readable text.
 The complete commands and logs remain in the local JSON/Markdown reports. Failing
 checks are normal domain results; invalid invocation/configuration is a DSH tool
-error. The tool uses the generic DSH card; there is no custom Web interface.
+error. In Desktop and Web, expand the tool-call group to see DoneGauge's
+acceptance card. Use the workspace that matches the approved Git root so the
+report and JUnit buttons open files in that project. Earlier recorded results
+with text-only metadata remain readable in the tool group.
 
 DSH's normal pre-execute tool policy can deny the call; cancellation propagates
 through `exec.signal`. The pinned configuration is an additional explicit

@@ -72,6 +72,15 @@ for one run. No shell is started implicitly. For a package script use, for examp
 is deliberately configured, such as `["sh", "-c", "..."]`, you are explicitly
 authorizing that shell and its code. DoneGauge does not generate shell commands.
 
+On Windows, a command whose executable explicitly ends in `.cmd` or `.bat`
+uses the system `cmd.exe` with each argument quoted. The report records that
+invocation. Batch arguments containing quotes, percent signs or line breaks,
+and batch runs from a UNC working directory, require a native executable or
+an explicit JavaScript entry such as `["node", "path/to/npm-cli.js", "test"]`.
+Other executables use the native argument array. Timeout and cancellation ask
+Windows `taskkill` to terminate the identified process tree. Processes that
+detach or outlive an already-exited parent can require separate cleanup.
+
 For Python, configure your intended interpreter (`python3` or an explicit virtual
 environment path). For Node's test runner, request TAP output and a positive
 expected count such as `"stdoutIncludes": "# pass 1"`. This catches accidentally

@@ -9,6 +9,7 @@ import { ToolsService, type ToolExecutionInput } from '@deepseek-ai/dsh-tools';
 import * as native from '@deepseek-ai/dsh-tool-executor-native';
 import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit';
 import * as adapter from '../src/adapters/dsh/index.js';
+import { readCardData } from '../src/adapters/dsh/card-data.js';
 import { loadConfig } from '../src/core/config.js';
 import type { AcceptanceConfig, AcceptanceReport } from '../src/core/types.js';
 import { configWith, newRepo, saveConfig } from './helpers.js';
@@ -94,6 +95,27 @@ test('DSH returns domain failures and execution errors as distinct structured st
     ERROR: 1,
   });
   assert.equal(value.finalStatus, 'REVIEW REQUIRED');
+  const visual = readCardData(result.meta);
+  assert.ok(
+    visual,
+    'The persisted DSH metadata should replay as an acceptance card.',
+  );
+  assert.deepEqual(visual.summary, value.summary);
+  assert.deepEqual(
+    visual.criteria.map((item) => [item.status, item.evidenceId]),
+    value.criteria.map((item) => [item.status, item.evidenceId]),
+  );
+  assert.match(
+    visual.criteria.find((item) => item.status === 'FAIL')?.execution ?? '',
+    /exit 1/,
+  );
+  assert.equal(
+    readCardData({
+      ...visual,
+      reports: { markdown: '../private.md', json: visual.reports.json },
+    }),
+    undefined,
+  );
   const card = result.content
     .map((content) => (content.type === 'text' ? content.text : ''))
     .join('\n');

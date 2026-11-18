@@ -1,0 +1,55 @@
+name: Draft GitHub release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: donegauge-github-release
+
+jobs:
+  draft:
+    if: github.repository == 'L8848-Li/DoneGauge' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tests/requirements.txt
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+        env:
+          DONEGAUGE_PYTHON: python
+      - name: Pack and verify the exact release artifact
+        shell: bash
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          asset="donegauge-$version.tgz"
+          mkdir -p "$RUNNER_TEMP/donegauge-release"
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/donegauge-release"
+          npm run test:package -- "$RUNNER_TEMP/donegauge-release/$asset"
+          cd "$RUNNER_TEMP/donegauge-release"
+          sha256sum "$asset" > "$asset.sha256"
+      - name: Create draft for the verified commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          tag="v$version"
+          asset="$RUNNER_TEMP/donegauge-release/donegauge-$version.tgz"
+          test -z "$(git ls-remote --tags origin "refs/tags/$tag")"
+          gh release create "$tag" "$asset" "$asset.sha256" \
+            --target "$GITHUB_SHA" --title "DoneGauge $tag" --generate-notes --draft --prerelease

@@ -23,6 +23,8 @@
       "types": "./dist/src/adapters/dsh/index.d.ts",
       "default": "./dist/src/adapters/dsh/index.js"
     },
+    "./client": "./dist/src/adapters/dsh/client.js",
+    "./package.json": "./package.json",
     "./schema": "./schema/donegauge.schema.json"
   },
   "files": [
@@ -43,7 +45,7 @@
     "dsh": "0.2.2-rc.3 || 0.2.2-rc.4"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/build-client.mjs",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test dist/tests/*.test.js",
     "lint": "eslint src tests scripts",
@@ -78,7 +80,9 @@
     "@deepseek-ai/dsh-tools": "0.2.2-rc.3",
     "@eslint/js": "^9.0.0",
     "@types/node": "^22.0.0",
+    "@types/react": "^18.3.31",
     "@types/sax": "^1.2.7",
+    "esbuild": "^0.28.2",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.9.0",
@@ -88,6 +92,12 @@
     "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-tool"
+      ]
     }
   },
   "repository": {

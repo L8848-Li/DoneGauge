@@ -258,7 +258,7 @@ for (const [label, body, status] of [
   ['report directory instead of file', `fs.mkdirSync(file)`, 'ERROR'],
   [
     'directory replaced',
-    `fs.rmdirSync(require('node:path').dirname(file));fs.mkdirSync(require('node:path').dirname(file));fs.writeFileSync(file, xml)`,
+    `fs.rmSync(require('node:path').dirname(file), {recursive:true});fs.mkdirSync(require('node:path').dirname(file));fs.writeFileSync(file, xml)`,
     'ERROR',
   ],
 ] as const)
@@ -312,7 +312,11 @@ test('timeout partial XML is retained but cannot pass, and later runs never reus
 test('JUnit refuses symlink ancestors before execution and nested report symlinks afterwards', async (t) => {
   const root = await newRepo(t);
   const other = await tempDirectory(t);
-  await symlink(other, join(root, '.donegauge'));
+  await symlink(
+    other,
+    join(root, '.donegauge'),
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
   await saveConfig(root, junitConfig(nodeCommand(), ['target']));
   await assert.rejects(
     checkAcceptance({ cwd: root, execute: true }),
@@ -328,7 +332,7 @@ test('JUnit refuses symlink ancestors before execution and nested report symlink
     [
       process.execPath,
       '-e',
-      `require('node:fs').symlinkSync(require('node:path').resolve('old'),process.argv[1])`,
+      `require('node:fs').symlinkSync(require('node:path').resolve('old'),process.argv[1],process.platform === 'win32' ? 'junction' : 'dir')`,
       '{evidenceDir}/nested',
     ],
     ['target'],

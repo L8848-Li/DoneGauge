@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { access } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { evaluate } from '../src/core/evaluator.js';
@@ -72,15 +72,91 @@ test('timeout terminates a real long-running process', async (t) => {
   assert.ok(result.durationMs < 4000);
 });
 
-test('signal termination is an execution ERROR', async (t) => {
-  const result = await runCommand(
-    [process.execPath, '-e', "process.kill(process.pid,'SIGTERM')"],
-    await tempDirectory(t),
+test(
+  'POSIX signal termination is an execution ERROR',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const result = await runCommand(
+      [process.execPath, '-e', "process.kill(process.pid,'SIGTERM')"],
+      await tempDirectory(t),
+    );
+    assert.equal(result.state, 'signaled');
+    assert.equal(result.signal, 'SIGTERM');
+    assert.equal(evaluate({ command: result.command }, result).status, 'ERROR');
+  },
+);
+
+test(
+  'Windows native argv and explicit batch shims preserve their supported literal characters',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const root = join(await tempDirectory(t), '中文 worktree');
+    await mkdir(root);
+    const argv = ['中文 path', '%NAME%', 'a & b ! ^ | < >', 'literal "quote"'];
+    const native = await runCommand(
+      [
+        process.execPath,
+        '-e',
+        'console.log(JSON.stringify(process.argv.slice(1)))',
+        '--',
+        ...argv,
+      ],
+      root,
+    );
+    assert.equal(native.exitCode, 0, JSON.stringify(native));
+    assert.deepEqual(JSON.parse(native.stdout), argv);
+    for (const ext of ['cmd', 'bat']) {
+      const script = `tool smoke.${ext}`;
+      await writeFile(join(root, script), '@echo off\r\necho "%~1"\r\n');
+      const batch = await runCommand([script, argv[2]!], root);
+      assert.equal(batch.exitCode, 0, JSON.stringify(batch));
+      assert.match(batch.command[0]!, /cmd\.exe$/i);
+      assert.equal(batch.stdout.trim(), `"${argv[2]}"`);
+      assert.equal(
+        (await runCommand([script, '%PATH%'], root)).state,
+        'spawn-error',
+      );
+    }
+  },
+);
+
+for (const stop of ['timeout', 'cancel'] as const) {
+  test(
+    `Windows ${stop} terminates the parent and its real descendant`,
+    { skip: process.platform !== 'win32' },
+    async (t) => {
+      const root = await tempDirectory(t);
+      const child =
+        "console.log('child-ready');setTimeout(()=>require('node:fs').writeFileSync('late-write','escaped'),3300);setInterval(()=>{},1000)";
+      const parent = `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(child)}],{stdio:'inherit'});setInterval(()=>{},1000)`;
+      const controller = new AbortController();
+      const abortTimer =
+        stop === 'cancel'
+          ? setTimeout(() => controller.abort(), 1800)
+          : undefined;
+      try {
+        const result = await runCommand(
+          [process.execPath, '-e', parent],
+          root,
+          {
+            timeoutMs: stop === 'timeout' ? 1800 : 10000,
+            signal: controller.signal,
+          },
+        );
+        assert.equal(
+          result.state,
+          stop === 'timeout' ? 'timed-out' : 'aborted',
+        );
+        assert.match(result.stdout, /child-ready/);
+        assert.doesNotMatch(result.error ?? '', /Could not confirm/);
+        await delay(2200);
+        await assert.rejects(access(join(root, 'late-write')));
+      } finally {
+        clearTimeout(abortTimer);
+      }
+    },
   );
-  assert.equal(result.state, 'signaled');
-  assert.equal(result.signal, 'SIGTERM');
-  assert.equal(evaluate({ command: result.command }, result).status, 'ERROR');
-});
+}
 
 test('output is bounded, with original byte counts and truthful unknown result', async (t) => {
   const command = [

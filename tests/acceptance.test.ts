@@ -86,6 +86,14 @@ test('CLI mixed real project preserves PASS, FAIL, UNVERIFIED, ERROR independent
 
 test('real Python Decimal and unittest example passes without installing Python packages', async (t) => {
   const root = await newRepo(t, 'python-cart');
+  const { config } = await loadConfig(root);
+  for (const criterion of config.criteria) {
+    if (criterion.check)
+      criterion.check.command[0] =
+        process.env.DONEGAUGE_PYTHON ??
+        (process.platform === 'win32' ? 'python' : 'python3');
+  }
+  await saveConfig(root, config);
   const result = await runCli(root, ['check', '--allow-run', '--json']);
   assert.equal(result.code, 0, result.stderr + result.stdout);
   const report = JSON.parse(result.stdout) as AcceptanceReport;
@@ -271,7 +279,11 @@ test('report formats share real evidence, escape logs, and refuse overwrites or 
   assert.equal((await reportFrom(root, paths.json)).runId, report.runId);
   await assert.rejects(writeReports(root, report), /refusing to overwrite/);
   const outside = await tempDirectory(t);
-  await symlink(outside, join(root, 'linked-reports'));
+  await symlink(
+    outside,
+    join(root, 'linked-reports'),
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
   await assert.rejects(
     writeReports(root, report, 'linked-reports'),
     /normal directory/,

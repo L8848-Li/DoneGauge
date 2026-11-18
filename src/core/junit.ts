@@ -286,16 +286,25 @@ export async function createEvidenceDirectory(root: string, runId: string) {
   }
   directory = resolve(directory, randomUUID());
   await mkdir(directory, { mode: 0o700 });
-  // Keep the original directory open until collection finishes. In particular,
-  // Linux may recycle a deleted directory's inode immediately if only its stat
-  // was retained, making a newly created replacement look like the original.
-  const handle = await open(
-    directory,
-    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
-  );
+  // POSIX can hold the directory inode open. Windows uses an exclusive marker
+  // alongside the directory identity because its file API cannot open this
+  // directory with the POSIX flags.
+  const marker =
+    process.platform === 'win32'
+      ? resolve(directory, `.lease-${randomUUID()}`)
+      : null;
+  const handle = marker
+    ? await open(marker, 'wx+', 0o600)
+    : await open(
+        directory,
+        constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+      );
   try {
-    const identity = await handle.stat();
-    return { directory, identity, handle };
+    const handleIdentity = await handle.stat({ bigint: true });
+    const identity = marker
+      ? await lstat(directory, { bigint: true })
+      : handleIdentity;
+    return { directory, identity, handle, handleIdentity, marker };
   } catch (error) {
     await handle.close();
     throw error;
@@ -318,21 +327,43 @@ export async function readJunitEvidence(
     current = resolve(current, segment);
     await normalDirectory(current);
   }
-  const identity = await lstat(evidence.directory);
-  const original = await evidence.handle.stat();
+  const identity = await lstat(evidence.directory, { bigint: true });
+  const original = await evidence.handle.stat({ bigint: true });
+  const liveMarker = evidence.marker
+    ? await lstat(evidence.marker, { bigint: true }).catch(() => null)
+    : identity;
   if (
-    original.nlink === 0 ||
+    original.nlink === 0n ||
     identity.dev !== evidence.identity.dev ||
-    identity.ino !== evidence.identity.ino
+    identity.ino !== evidence.identity.ino ||
+    !liveMarker ||
+    liveMarker.isSymbolicLink() ||
+    liveMarker.dev !== evidence.handleIdentity.dev ||
+    liveMarker.ino !== evidence.handleIdentity.ino
   )
     throw new Error('JUnit evidence directory was replaced during execution.');
+  const pathBefore = await lstat(target, { bigint: true });
+  if (
+    !pathBefore.isFile() ||
+    pathBefore.isSymbolicLink() ||
+    pathBefore.nlink !== 1n
+  )
+    throw new Error(
+      'JUnit report must be a normal file, without symlinks or hard links.',
+    );
   const handle = await open(
     target,
     constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
   );
   try {
     const before = await handle.stat();
-    if (!before.isFile() || before.nlink !== 1)
+    const openedIdentity = await handle.stat({ bigint: true });
+    if (
+      !before.isFile() ||
+      before.nlink !== 1 ||
+      openedIdentity.dev !== pathBefore.dev ||
+      openedIdentity.ino !== pathBefore.ino
+    )
       throw new Error(
         'JUnit report must be a normal file, without symlinks or hard links.',
       );

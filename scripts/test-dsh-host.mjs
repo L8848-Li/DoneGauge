@@ -155,7 +155,7 @@ const dump = await runCommand(
   { env },
 );
 assert.equal(dump.exitCode, 0, dump.stderr + dump.stdout);
-assert.match(dump.stdout, /donegauge\/dsh/);
+assert.match(dump.stdout, /name: +['"]?donegauge['"]?\s/);
 const host = spawn(
   executable,
   [...prefix, '--profile', 'donegauge-smoke', '--patch', patch],

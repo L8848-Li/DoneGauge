@@ -6,6 +6,7 @@ import { checkAcceptance } from '../../core/check.js';
 import { errorMessage } from '../../core/errors.js';
 import { repositoryRoot } from '../../core/git.js';
 import { writeReports } from '../../reporters/index.js';
+import { cardKind } from './card-data.js';
 
 export const name = 'donegauge';
 export const inject = ['tools'];
@@ -85,6 +86,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
                   },
                   reason: { type: 'string', required: true },
                   evidenceId: { type: 'string', required: true },
+                  execution: { type: 'string', required: true },
                   targetTests: { type: 'integer', required: true },
                   executedTargetTests: { type: 'integer', required: true },
                   testEvidencePath: { type: 'string', required: true },
@@ -114,6 +116,11 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
                 markdown: { type: 'string', required: true },
               },
             },
+            warnings: {
+              type: 'array',
+              items: { type: 'string' },
+              required: true,
+            },
             text: { type: 'string', required: true },
           },
         },
@@ -123,6 +130,19 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
             text: `${value.text}\nReports: ${value.reports.markdown}\n         ${value.reports.json}`,
           },
         ],
+        presentationMeta: (
+          _args,
+          { runId, task, finalStatus, summary, criteria, reports, warnings },
+        ) => ({
+          kind: cardKind,
+          runId,
+          task,
+          finalStatus,
+          summary,
+          criteria,
+          reports,
+          warnings,
+        }),
       },
       async execute(args, exec) {
         if (Object.keys(args).length)
@@ -164,6 +184,17 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
               status: c.status,
               reason: c.reason,
               evidenceId: c.evidence?.id ?? '',
+              execution: c.evidence
+                ? [
+                    c.evidence.state,
+                    c.evidence.exitCode === null
+                      ? null
+                      : `exit ${c.evidence.exitCode}`,
+                    c.evidence.signal,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                : '',
               targetTests: c.testEvidence?.counts.targets ?? 0,
               executedTargetTests: c.testEvidence?.counts.executedTargets ?? 0,
               testEvidencePath: c.testEvidence?.source.path ?? '',
@@ -181,6 +212,7 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
                 })) ?? [],
             })),
             reports,
+            warnings: report.warnings,
             text: [
               `DoneGauge: ${report.task}`,
               `${report.summary.PASS} verified, ${report.summary.FAIL} failed, ${report.summary.UNVERIFIED} unverified, ${report.summary.ERROR} errors`,

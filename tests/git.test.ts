@@ -11,14 +11,16 @@ test('collects staged, unstaged, deleted, and unusual untracked paths without ch
   await rm(join(root, 'delete.txt'));
   await writeFile(join(root, 'staged.txt'), 'staged\n');
   await execGit(root, ['add', '--', 'staged.txt']);
-  await writeFile(join(root, 'new 中文\nname.txt'), 'untracked content\n');
+  const unusual =
+    process.platform === 'win32' ? 'new 中文 name.txt' : 'new 中文\nname.txt';
+  await writeFile(join(root, unusual), 'untracked content\r\n');
   const before = await readFile(join(root, '.git/index'));
   const changes = await collectChanges(root);
   assert.deepEqual(
     changes.files.map((f) => [f.path, f.status, f.untracked]),
     [
       ['delete.txt', 'deleted', false],
-      ['new 中文\nname.txt', 'added', true],
+      [unusual, 'added', true],
       ['staged.txt', 'added', false],
       ['tracked.txt', 'modified', false],
     ],

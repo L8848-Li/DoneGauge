@@ -19,6 +19,11 @@ npm run test:package
 
 `npm run format` formats source and documentation. `npm run lint` and
 `npm run typecheck` can run independently. Tests use Node's built-in test runner.
+
+Hosted checks have named jobs for Node 24 on Ubuntu, macOS and Windows, and
+Node 22 core/CLI on Ubuntu. During early development, maintainers can push
+directly to `main` and review check results after the push. Required checks
+and PR-only branch protection remain a separate repository setting.
 JUnit integration tests require pytest (pinned in `tests/requirements.txt`); set
 `DONEGAUGE_PYTHON` to select an existing virtual environment interpreter. Missing
 pytest fails these tests rather than silently skipping acceptance coverage.

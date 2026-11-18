@@ -59,7 +59,7 @@ export async function repositoryRoot(
     result,
     'DoneGauge needs a Git working tree. Run from a repository or use --cwd /path/to/project. Install Git if it is missing.',
   );
-  const path = output.endsWith('\n') ? output.slice(0, -1) : output;
+  const path = output.replace(/\r?\n$/, '');
   return realpath(path);
 }
 
@@ -232,7 +232,7 @@ export async function collectChanges(
           '--no-textconv',
           '--binary',
           '--',
-          '/dev/null',
+          '-',
           path,
         ],
         signal,

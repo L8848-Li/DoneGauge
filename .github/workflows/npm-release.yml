@@ -1,0 +1,78 @@
+name: Stage or verify npm release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version of the published GitHub release, without v
+        required: true
+        type: string
+      operation:
+        description: Stage for maintainer review or verify the public package
+        required: true
+        type: choice
+        options: [stage, verify]
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    if: github.repository == 'L8848-Li/DoneGauge' && github.ref == 'refs/heads/main' && inputs.operation == 'stage'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check the published GitHub Release archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          test "$VERSION" = "$(node -p 'require("./package.json").version')"
+          test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = false
+          asset="donegauge-$VERSION.tgz"
+          gh release download "v$VERSION" --pattern "$asset" --pattern "$asset.sha256" --dir "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP"
+          sha256sum --strict --check "$asset.sha256"
+      - name: Stage with short-lived npm credentials
+        env:
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          npm install --global npm@11 --ignore-scripts
+          npm stage publish "$RUNNER_TEMP/donegauge-$VERSION.tgz" --access public --ignore-scripts
+  verify:
+    if: github.repository == 'L8848-Li/DoneGauge' && github.ref == 'refs/heads/main' && inputs.operation == 'verify'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install from npm and exercise the real executable
+        env:
+          DONEGAUGE_PYTHON: python
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          test "$VERSION" = "$(node -p 'require("./package.json").version')"
+          npm run test:package -- --registry
