@@ -39,3 +39,17 @@ uses pytest to run the existing two unittest cases and selects their exact names
 and class. The original configurations remain available without `--junit`.
 JUnit does not prove that the test design is correct or sufficiently covers the
 product; inspect the assertions and retained raw reports.
+
+## What the tests protect
+
+| Criterion             | Assertions                                                                                              | Controlled regression caught by CI                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Duplicate email       | Normalize case and spaces, reject the second signup, retain the original account.                       | Remove duplicate detection.                          |
+| Password storage      | Recompute the stored scrypt hash, check distinct salts for the same password, reject plaintext storage. | Store plaintext or use a fixed salt.                 |
+| Login                 | Accept the correct password and normalized email, reject a wrong password and unknown account.          | Accept any password for a known account.             |
+| Cart total            | Add decimal prices exactly, including an empty cart and zero prices.                                    | Sum binary floats before converting back to Decimal. |
+| Cart price validation | Reject a negative item even when the cart total stays positive.                                         | Check only the total for negativity.                 |
+
+The regression tests patch disposable copies and verify a real failed test in fresh
+JUnit XML. Review the behavior asserted, boundary cases, missing or skipped tests,
+and the reported source before using an example as a project acceptance contract.
