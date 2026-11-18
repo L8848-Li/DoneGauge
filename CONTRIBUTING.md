@@ -20,10 +20,6 @@ npm run test:package
 `npm run format` formats source and documentation. `npm run lint` and
 `npm run typecheck` can run independently. Tests use Node's built-in test runner.
 
-Hosted checks have named jobs for Node 24 on Ubuntu, macOS and Windows, and
-Node 22 core/CLI on Ubuntu. During early development, maintainers can push
-directly to `main` and review check results after the push. Required checks
-and PR-only branch protection remain a separate repository setting.
 JUnit integration tests require pytest (pinned in `tests/requirements.txt`); set
 `DONEGAUGE_PYTHON` to select an existing virtual environment interpreter. Missing
 pytest fails these tests rather than silently skipping acceptance coverage.
@@ -31,6 +27,20 @@ They create disposable Git repositories; fixture commits never touch your workin
 repository. All acceptance checks execute real local processes.
 
 ## Pull requests
+
+The [Protect main ruleset](https://github.com/L8848-Li/DoneGauge/rules/27529800)
+requires an up-to-date pull request with all four GitHub Actions checks passing.
+
+| Required check                     | Coverage                             |
+| ---------------------------------- | ------------------------------------ |
+| `Verify (ubuntu-latest, Node 22)`  | Core and CLI compatibility           |
+| `Verify (ubuntu-latest, Node 24)`  | Full checks and package installation |
+| `Verify (macos-latest, Node 24)`   | Full checks and package installation |
+| `Verify (windows-latest, Node 24)` | Full checks and package installation |
+
+Node 22 excludes the DSH integration tests, which require Node.js 24.9 or newer.
+The rules apply to maintainers too, with no bypass list or required reviewer.
+Direct pushes, force pushes, and deletion of `main` are blocked.
 
 - Explain the user-visible problem, behavior after the change, and checks you ran.
 - Add meaningful coverage for changed evidence, execution, configuration, or

@@ -8,7 +8,7 @@
 
 ## 发布前
 
-1. 在 `main` 确定待发布提交。[GitHub CI](https://github.com/L8848-Li/DoneGauge/actions/workflows/ci.yml) 提供 Ubuntu、macOS、Windows 和 Node.js 22 的检查记录。开发阶段可以直接推送 `main`，发行工作流会单独检查自己打包的提交。
+1. 在 `main` 确定待发布提交。合入 `main` 须走 PR，并通过[贡献指南](../CONTRIBUTING.md#pull-requests)列出的四项检查。发行工作流会单独验证自己打包的提交。
 2. 按下方命令从待发布提交构建一次，用同一个 `.tgz` 验证 CLI 和 DSH 宿主。核对 [DSH 兼容版本和配置方式](dsh.md)。
 3. 按 [#2](https://github.com/L8848-Li/DoneGauge/issues/2) 在隔离的 Desktop 或 Web profile 中走一遍真实对话。用 JUnit 示例验证工具调用和报告落盘，用混合示例确认四种状态能如实展示。再检查配置摘要过期、权限拒绝和用户取消，记录宿主版本、profile 和结果。
 
@@ -69,5 +69,4 @@ npx --no-install donegauge --version
 
 ## 维护者待办
 
-- 开发阶段允许直接推送 `main`。进入需要 PR 审查的阶段时，按 [#4](https://github.com/L8848-Li/DoneGauge/issues/4) 配置必需检查和分支保护。
 - [#6](https://github.com/L8848-Li/DoneGauge/issues/6) 记录 npm 账户确认、公开发行与安装验证。GitHub Release 是当前预览版的分发入口。
