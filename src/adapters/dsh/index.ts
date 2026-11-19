@@ -1,4 +1,5 @@
 import { isAbsolute } from 'node:path';
+import { registerGuidedReview } from './guided.js';
 import { realpath } from 'node:fs/promises';
 import type { Context } from '@deepseek-ai/cordis';
 import { defineTool, ToolArgsError } from '@deepseek-ai/dsh-tools';
@@ -6,14 +7,14 @@ import { checkAcceptance } from '../../core/check.js';
 import { errorMessage } from '../../core/errors.js';
 import { repositoryRoot } from '../../core/git.js';
 import { writeReports } from '../../reporters/index.js';
-import { cardKind } from './card-data.js';
-import { renderModelResult } from './model-result.js';
+import { reportResult, reportOutput } from './report.js';
 
 export const name = 'donegauge';
 export const inject = ['tools'];
 
 export interface DshConfig {
   root?: string;
+  guidedReview?: boolean;
   configPath?: string;
   approvedConfigSha256?: string;
 }
@@ -21,7 +22,11 @@ export interface DshConfig {
 export function apply(ctx: Context, config: DshConfig = {}): void {
   // Deployment config is human-authored, never supplied as model arguments.
   for (const key of Object.keys(config)) {
-    if (!['root', 'configPath', 'approvedConfigSha256'].includes(key))
+    if (
+      !['root', 'configPath', 'approvedConfigSha256', 'guidedReview'].includes(
+        key,
+      )
+    )
       throw new Error(`Unknown DoneGauge plugin configuration field: ${key}`);
   }
   if (
@@ -41,111 +46,43 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
     throw new Error(
       'DoneGauge approvedConfigSha256 must be the digest printed by donegauge config-hash.',
     );
+  if (
+    config.guidedReview !== undefined &&
+    typeof config.guidedReview !== 'boolean'
+  )
+    throw new Error('guidedReview must be boolean.');
   const approved = { ...config };
   let running = false;
+  async function boundRoot(signal: AbortSignal) {
+    if (!approved.root)
+      throw new ToolArgsError([
+        'Set the project root in the human-owned DSH overlay.',
+      ]);
+    const root = await repositoryRoot(approved.root, signal);
+    if (root !== (await realpath(approved.root)))
+      throw new ToolArgsError(['DoneGauge root must be the Git root.']);
+    return root;
+  }
+  async function exclusive<T>(work: () => Promise<T>) {
+    if (running)
+      throw new ToolArgsError([
+        'A DoneGauge check is already running. Wait for it to finish.',
+      ]);
+    running = true;
+    try {
+      return await work();
+    } finally {
+      running = false;
+    }
+  }
+  if (approved.guidedReview) registerGuidedReview(ctx, boundRoot, exclusive);
   ctx.tools.register(
     defineTool({
       name: 'donegauge_check',
       description:
         'Run the approved project checks once per acceptance verification request. No arguments.',
       parameters: {},
-      output: {
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            runId: { type: 'string', required: true },
-            task: { type: 'string', required: true },
-            finalStatus: {
-              type: 'string',
-              enum: ['VERIFIED', 'REVIEW REQUIRED'],
-              required: true,
-            },
-            summary: {
-              type: 'object',
-              additionalProperties: false,
-              required: true,
-              properties: {
-                PASS: { type: 'integer', required: true },
-                FAIL: { type: 'integer', required: true },
-                UNVERIFIED: { type: 'integer', required: true },
-                ERROR: { type: 'integer', required: true },
-              },
-            },
-            criteria: {
-              type: 'array',
-              required: true,
-              items: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  id: { type: 'string', required: true },
-                  status: {
-                    type: 'string',
-                    enum: ['PASS', 'FAIL', 'UNVERIFIED', 'ERROR'],
-                    required: true,
-                  },
-                  reason: { type: 'string', required: true },
-                  evidenceId: { type: 'string', required: true },
-                  execution: { type: 'string', required: true },
-                  targetTests: { type: 'integer', required: true },
-                  executedTargetTests: { type: 'integer', required: true },
-                  testEvidencePath: { type: 'string', required: true },
-                  testEvidenceAvailable: { type: 'boolean', required: true },
-                  targetTestResults: {
-                    type: 'array',
-                    required: true,
-                    items: {
-                      type: 'object',
-                      additionalProperties: false,
-                      properties: {
-                        name: { type: 'string', required: true },
-                        className: { type: 'string', required: true },
-                        matches: { type: 'integer', required: true },
-                        outcome: { type: 'string', required: true },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            reports: {
-              type: 'object',
-              additionalProperties: false,
-              required: true,
-              properties: {
-                json: { type: 'string', required: true },
-                markdown: { type: 'string', required: true },
-              },
-            },
-            warnings: {
-              type: 'array',
-              items: { type: 'string' },
-              required: true,
-            },
-            text: { type: 'string', required: true },
-          },
-        },
-        render: (_args, value) => [
-          {
-            type: 'text',
-            text: value.text,
-          },
-        ],
-        presentationMeta: (
-          _args,
-          { runId, task, finalStatus, summary, criteria, reports, warnings },
-        ) => ({
-          kind: cardKind,
-          runId,
-          task,
-          finalStatus,
-          summary,
-          criteria,
-          reports,
-          warnings,
-        }),
-      },
+      output: reportOutput,
       async execute(args, exec) {
         if (Object.keys(args).length)
           throw new ToolArgsError([
@@ -155,76 +92,27 @@ export function apply(ctx: Context, config: DshConfig = {}): void {
           throw new ToolArgsError([
             'DoneGauge is not configured. Set root and approvedConfigSha256 in a local DSH --patch overlay. See docs/dsh.md.',
           ]);
-        if (running)
-          throw new ToolArgsError([
-            'A DoneGauge check is already running. Wait for it to finish.',
-          ]);
+        const approvedConfigSha256 = approved.approvedConfigSha256;
         exec.signal.throwIfAborted();
-        running = true;
-        try {
-          const root = await repositoryRoot(approved.root, exec.signal);
-          if (root !== (await realpath(approved.root)))
-            throw new ToolArgsError([
-              'DoneGauge root must point to the Git root, not a subdirectory.',
-            ]);
-          const report = await checkAcceptance({
-            cwd: root,
-            configPath: approved.configPath ?? 'donegauge.json',
-            execute: true,
-            approvedConfigSha256: approved.approvedConfigSha256,
-            signal: exec.signal,
-          });
-          exec.signal.throwIfAborted();
-          const reports = await writeReports(root, report);
-          const result = {
-            runId: report.runId,
-            task: report.task,
-            finalStatus: report.finalStatus,
-            summary: report.summary,
-            criteria: report.criteria.map((c) => ({
-              id: c.id,
-              status: c.status,
-              reason: c.reason,
-              evidenceId: c.evidence?.id ?? '',
-              execution: c.evidence
-                ? [
-                    c.evidence.state,
-                    c.evidence.exitCode === null
-                      ? null
-                      : `exit ${c.evidence.exitCode}`,
-                    c.evidence.signal,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-                : '',
-              targetTests: c.testEvidence?.counts.targets ?? 0,
-              executedTargetTests: c.testEvidence?.counts.executedTargets ?? 0,
-              testEvidencePath: c.testEvidence?.source.path ?? '',
-              testEvidenceAvailable: c.testEvidence?.source.bytes != null,
-              targetTestResults:
-                c.testEvidence?.selections.map((s) => ({
-                  name: s.selector.name,
-                  className: s.selector.className ?? '',
-                  matches: s.matches.length,
-                  outcome:
-                    s.matches.length === 1
-                      ? c.testEvidence!.cases[s.matches[0]!]!.outcome
-                      : s.matches.length
-                        ? 'ambiguous'
-                        : 'missing',
-                })) ?? [],
-            })),
-            reports,
-            warnings: report.warnings,
-          };
-          return { ...result, text: renderModelResult(result) };
-        } catch (error) {
-          exec.signal.throwIfAborted();
-          if (error instanceof ToolArgsError) throw error;
-          throw new ToolArgsError([errorMessage(error)]);
-        } finally {
-          running = false;
-        }
+        return exclusive(async () => {
+          try {
+            const root = await boundRoot(exec.signal);
+            const report = await checkAcceptance({
+              cwd: root,
+              configPath: approved.configPath ?? 'donegauge.json',
+              execute: true,
+              approvedConfigSha256,
+              signal: exec.signal,
+            });
+            exec.signal.throwIfAborted();
+            const reports = await writeReports(root, report);
+            return reportResult(report, reports);
+          } catch (error) {
+            exec.signal.throwIfAborted();
+            if (error instanceof ToolArgsError) throw error;
+            throw new ToolArgsError([errorMessage(error)]);
+          }
+        });
       },
     }),
   );

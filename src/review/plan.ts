@@ -158,7 +158,11 @@ export function compilePlan(
   return { configText, digest, selected };
 }
 
-async function draftDirectory(root: string, draftId: string, create: boolean) {
+export async function draftDirectory(
+  root: string,
+  draftId: string,
+  create: boolean,
+) {
   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(draftId))
     return invalid('Expected a review draft ID, not a path.');
   let directory = root;

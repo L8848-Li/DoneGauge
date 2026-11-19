@@ -7,6 +7,18 @@ Current hosted CI results are available on the [repository Actions page](https:/
 
 ## Automated checks
 
+### Guided DSH milestone (2026-11-19)
+
+On macOS arm64 / Node 24.16.0, the local tarball was installed in isolated **DSH 0.2.2-rc.3 and 0.2.2-rc.4** profiles. Each host dispatched through the native executor with no model or paid account:
+
+- In an open test session, the real approval service received an exact-plan request. An isolated test answerer rejected once, cancelled once, then granted two separate runs. The positive registration assertion returned VERIFIED; the intentionally regressed login returned one FAIL. This exercised host decisions, not a human clicking a Desktop dialog.
+- Without an Agent, a guided draft could be prepared, but native execution was refused. The CLI opened that draft, ran one named test and retained one unverified condition; the counts-only receipt returned the same run ID and status to the host. The old pinned tool also completed its three JUnit assertions.
+- Runtime tests independently cover changes during approval, missing shared receipts, malformed IDs, invalid counts, policy denial, in-flight cancellation, and private vs. explicitly shared CLI runs. The existing result card renderer is reused; its previous Desktop tests are not a new UI walkthrough of the guided flow.
+
+**Discovery timing:** 20 fresh CLI processes in one disposable Git repository (100 directories, 9,900 JS sources, 100 static Node test files plus Git metadata). Every preview returned 100 candidates, one exact binding and no scan-limit warning. End-to-end local preview including draft write: **82–93 ms, nearest-rank P95 86 ms**. Filesystem caches were not reset. This is not a measurement of model latency or arbitrary repositories.
+
+**Remaining release gates:** recruit five first-time users on prepared Node/Python fixtures; record time from pasting requirements to starting the first check without assistance, whether they can identify the missing evidence, and any point where they had to ask for help. Target: at least four complete both tasks within the PRD conditions. Also inspect the actual interactive consent dialog, and independently run the model holdout with explicit disclosure approval. No participant results or model-quality percentages are inferred from automated checks.
+
 | Command / scope                            | Actual result                                                                                                                                                                                                             |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run check`                            | Strict TypeScript, ESLint, Prettier, build, and **48/48 tests passed**, zero skipped.                                                                                                                                     |

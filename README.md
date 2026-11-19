@@ -76,6 +76,8 @@ The [runnable examples](examples/README.md) include a Python cart with both
 
 ## DeepSeek Harness
 
+For a draft-first workflow, enable `guidedReview: true` in your bound project's local plugin config. DSH can preview a requirement, request one-time host approval for its exact plan, or hand the draft to you in the CLI. [Guided review and opt-in handback](docs/dsh.md#guided-review).
+
 DoneGauge registers `donegauge_check` through the official DSH plugin API. The
 verified hosts are **DSH 0.2.2-rc.3 and 0.2.2-rc.4**, which require Node.js 24.9 or later.
 Follow the [DSH setup](docs/dsh.md) to load from a source checkout or install a

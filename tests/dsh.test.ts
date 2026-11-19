@@ -9,12 +9,18 @@ import { SystemPrompt } from '@deepseek-ai/dsh-system-prompt';
 import { ToolsService, type ToolExecutionInput } from '@deepseek-ai/dsh-tools';
 import * as native from '@deepseek-ai/dsh-tool-executor-native';
 import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit';
+import { Session } from '@deepseek-ai/dsh-session';
+import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection';
+import {
+  ApprovalService,
+  type ApprovalOutcome,
+} from '@deepseek-ai/dsh-user-approval';
 import * as adapter from '../src/adapters/dsh/index.js';
 import { readCardData } from '../src/adapters/dsh/card-data.js';
 import { renderModelResult } from '../src/adapters/dsh/model-result.js';
 import { loadConfig } from '../src/core/config.js';
 import type { AcceptanceConfig, AcceptanceReport } from '../src/core/types.js';
-import { configWith, newRepo, saveConfig } from './helpers.js';
+import { configWith, newRepo, saveConfig, runCli } from './helpers.js';
 import { renderMarkdown, renderTerminal } from '../src/reporters/index.js';
 
 async function host(
@@ -42,6 +48,210 @@ function call(
     signal,
   });
 }
+
+function guidedCall(
+  ctx: Context,
+  name: string,
+  args: unknown,
+  agent?: ToolExecutionInput['agent'],
+  signal = new AbortController().signal,
+) {
+  return executeModelToolFixture(ctx, {
+    callId: randomUUID() as ToolExecutionInput['callId'],
+    name,
+    arguments: args,
+    ...(agent ? { agent } : {}),
+    signal,
+  });
+}
+
+test('guided DSH preview hands the same draft to CLI without running; only explicitly shared counts come back', async (t) => {
+  const root = await newRepo(t, 'node-registration');
+  const ctx = await host(t, { root, guidedReview: true });
+  const missing = await guidedCall(ctx, 'donegauge_review', {});
+  assert.match(JSON.stringify(missing), /paste the original requirement/);
+  await assert.rejects(access(join(root, '.donegauge', 'reviews')));
+  const elsewhere = await newRepo(t);
+  const otherAgent = {
+    session: { header: { cwd: elsewhere } },
+  } as ToolExecutionInput['agent'];
+  const wrongProject = await guidedCall(
+    ctx,
+    'donegauge_review',
+    { task: 'login' },
+    otherAgent,
+  );
+  assert.match(JSON.stringify(wrongProject), /not in the configured project/);
+  await assert.rejects(access(join(root, '.donegauge', 'reviews')));
+  const preview = await guidedCall(ctx, 'donegauge_review', {
+    task: 'login after registration; manual requirement',
+  });
+  assert.equal(preview.isError, false, JSON.stringify(preview));
+  if (preview.isError) return;
+  const { draft, revision, canRequestApproval, runnable } = preview.value as {
+    draft: string;
+    revision: string;
+    canRequestApproval: boolean;
+    runnable: number;
+  };
+  assert.equal(runnable, 1);
+  assert.equal(canRequestApproval, false);
+  const refusal = await guidedCall(ctx, 'donegauge_review_run', {
+    draft,
+    revision,
+  });
+  assert.match(JSON.stringify(refusal), /No routable human approval/);
+  await assert.rejects(access(join(root, '.donegauge', 'runs')));
+  const cliPreview = JSON.parse(
+    (await runCli(root, ['review', '--draft', draft, '--json'])).stdout,
+  );
+  assert.notEqual(revision, cliPreview.digest);
+  const args = [
+    'review',
+    '--draft',
+    draft,
+    '--approve',
+    cliPreview.digest,
+    '--json',
+  ];
+  const privateResult = JSON.parse((await runCli(root, args)).stdout);
+  assert.equal(
+    (
+      await guidedCall(ctx, 'donegauge_review_result', {
+        draft,
+        runId: privateResult.runId,
+      })
+    ).isError,
+    true,
+  );
+  const completed = await runCli(root, [...args, '--share-with-dsh']);
+  assert.equal(completed.code, 1, completed.stderr);
+  const report = JSON.parse(completed.stdout);
+  const shared = await guidedCall(ctx, 'donegauge_review_result', {
+    draft,
+    runId: report.runId,
+  });
+  assert.equal(shared.isError, false, JSON.stringify(shared));
+  assert.match(
+    JSON.stringify(shared),
+    /REVIEW REQUIRED · PASS 1 \/ FAIL 0 \/ UNVERIFIED 1 \/ ERROR 0/,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(shared),
+    /registration\.test\.mjs|stdoutSha256/,
+  );
+  const receiptPath = join(
+    root,
+    '.donegauge',
+    'reviews',
+    draft,
+    'shared-' + report.runId + '.json',
+  );
+  const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  await writeFile(
+    receiptPath,
+    JSON.stringify({ ...receipt, finalStatus: 'VERIFIED' }),
+  );
+  assert.equal(
+    (
+      await guidedCall(ctx, 'donegauge_review_result', {
+        draft,
+        runId: report.runId,
+      })
+    ).isError,
+    true,
+  );
+  for (const bad of [
+    { draft: '../other', runId: report.runId },
+    { draft, runId: '../other' },
+  ])
+    assert.equal(
+      (await guidedCall(ctx, 'donegauge_review_result', bad)).isError,
+      true,
+    );
+  const denied = ctx.on('tools/pre-execute', async () => ({
+    kind: 'deny',
+    reason: 'operator policy',
+  }));
+  assert.equal(
+    (await guidedCall(ctx, 'donegauge_review', { task: 'new requirement' }))
+      .isError,
+    true,
+  );
+  denied();
+});
+
+test('guided native runs require a fresh allowed-once decision on the displayed commands and recheck the source afterwards', async (t) => {
+  const root = await newRepo(t);
+  const file = join(root, 'feature.test.mjs');
+  const source =
+    "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('target works',()=>assert.ok(true));\n";
+  await writeFile(file, source);
+  const ctx = await host(t, { root, guidedReview: true });
+  await ctx.plugin(SessionProjectionRegistry).await();
+  await ctx.plugin(ApprovalService, {}).await();
+  const session = Session.create(
+    randomUUID() as Parameters<typeof Session.create>[0],
+  );
+  session.append('turn/start', { turn: 1 });
+  const agent = { session } as ToolExecutionInput['agent'];
+  let decision: ApprovalOutcome = 'rejected';
+  let during: (() => Promise<void>) | undefined;
+  const prompts: string[] = [];
+  ctx.on('approval/request', async (req) => {
+    prompts.push(req.reason ?? '');
+    await during?.();
+    return decision;
+  });
+  const getRevision = async () => {
+    const result = await guidedCall(
+      ctx,
+      'donegauge_review',
+      { task: 'target works' },
+      agent,
+    );
+    assert.equal(result.isError, false, JSON.stringify(result));
+    if (result.isError) throw new Error('Missing preview');
+    const { draft, revision, canRequestApproval } = result.value as {
+      draft: string;
+      revision: string;
+      canRequestApproval: boolean;
+    };
+    assert.equal(canRequestApproval, true);
+    return { draft, revision };
+  };
+  const args = await getRevision();
+  const run = (data = args, signal?: AbortSignal) =>
+    guidedCall(ctx, 'donegauge_review_run', data, agent, signal);
+  assert.equal((await run({ ...args, revision: 'invalid' })).isError, true);
+  assert.equal(prompts.length, 0);
+  assert.equal((await run()).isError, true);
+  assert.match(prompts[0]!, /--test-reporter=junit/);
+  assert.ok(prompts[0]!.includes(args.revision));
+  decision = 'allowed-once';
+  during = () => writeFile(file, source + '\n');
+  assert.equal((await run()).isError, true);
+  await assert.rejects(access(join(root, '.donegauge', 'runs')));
+  during = undefined;
+  const allowed = await run(await getRevision());
+  assert.equal(allowed.isError, false, JSON.stringify(allowed));
+  assert.equal(readCardData(allowed.meta)?.finalStatus, 'VERIFIED');
+  await writeFile(file, source.replace('assert.ok(true)', 'assert.ok(false)'));
+  const failed = await run(await getRevision());
+  assert.equal(
+    readCardData(failed.meta)?.summary.FAIL,
+    1,
+    JSON.stringify(failed),
+  );
+  const controller = new AbortController();
+  during = async () => {
+    controller.abort();
+  };
+  assert.equal(
+    (await run(await getRevision(), controller.signal)).isError,
+    true,
+  );
+});
 
 test('official DSH runtime registers and invokes real approved Node acceptance checks', async (t) => {
   const root = await newRepo(t, 'node-registration');

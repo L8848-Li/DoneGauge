@@ -43,6 +43,16 @@ criteria.** The call arguments are `{}`. Unexpected arguments, missing approval,
 and changed config digests are rejected before commands run. The adapter does not
 automatically run after every coding turn.
 
+## Guided review
+
+Guidance is opt-in. Set `guidedReview: true` alongside `root` in the operator-owned plugin config. You do not need an approved config hash to **plan**; the original no-argument `donegauge_check` still requires one. Do not enable this feature in a shared deployment unless its approval answerers and workspace binding are trusted.
+
+1. Ask DSH: **Prepare a DoneGauge review of this requirement: “login after registration; weak passwords show a useful message”. Do not run it yet.** The new `donegauge_review` tool takes either task text or a saved draft ID. Its input is a quote supplied via the host, not authenticated chat selection. The supported tool contexts expose an optional Agent/session but no user-selected message; the adapter never scans chat history. With neither input it asks for the original requirement. Discovery and drafting are local, with no separate model request. Tool inputs and summaries remain visible to the DSH conversation.
+2. Inspect the draft, including gaps. For edits use `donegauge review --draft DRAFT_ID` locally, then preview that same ID in DSH again. An available approval service plus an agent means a decision **can be requested**, not that it will be granted. `donegauge_review_run` requires the preview revision, shows the complete execution config and bound project in one host approval request, and rechecks the draft and test sources after that decision. Only `allowed-once` proceeds. Host policy, rejection or cancellation can still stop the run; the revision is not a CLI execution credential. Oversized plans must be inspected locally, not silently truncated for consent.
+3. On a native run, open the same acceptance card and local JSON/Markdown reports as for the pinned check. If no approval channel is available, **the user**, not the model, can open the draft in the local CLI. To return a summary, explicitly run `donegauge review --draft DRAFT_ID --share-with-dsh`, inspect and confirm in that terminal, and give DSH the printed draft and run IDs. `donegauge_review_result` reads only that shared receipt. It does not search private runs or return task text, commands, diffs or logs. Declining host permission does not trigger a fallback run.
+
+Local receipts live next to the draft as `shared-RUN_ID.json`, are not signed attestations, and do not make ignored files tamper-proof. Remove the receipt to disable future handback; this does not retract results already shared in a conversation. The adapter never switches projects on a model's instruction. When the session advertises a working directory, it must resolve to the configured Git repository.
+
 ## Install a prebuilt bundle
 
 ```sh

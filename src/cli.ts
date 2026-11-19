@@ -8,6 +8,7 @@ import { DoneGaugeError, errorMessage } from './core/errors.js';
 import { repositoryRoot } from './core/git.js';
 import { version } from './core/version.js';
 import { review } from './review/cli.js';
+import { shareResult } from './review/shared-result.js';
 import {
   renderJson,
   renderTerminal,
@@ -32,6 +33,7 @@ Options:
   --allow-run        Explicitly authorize configured commands for this run
   --task TEXT        Local review: separate requirements with semicolons or newlines
   --draft ID         Reopen a local review draft (preview by default)
+  --share-with-dsh    On completed draft runs, save a local counts-only DSH receipt
   --approve DIGEST   Run only the exact review preview identified by this digest
   --ai               Preview an optional model request (no network by default)
   --omit-tests       Omit all candidate test names and IDs from the model request
@@ -52,6 +54,7 @@ function argumentsFromCli() {
         config: { type: 'string' },
         task: { type: 'string' },
         draft: { type: 'string' },
+        'share-with-dsh': { type: 'boolean' },
         approve: { type: 'string' },
         ai: { type: 'boolean' },
         'omit-tests': { type: 'boolean' },
@@ -85,6 +88,14 @@ async function main(): Promise<number> {
     return 0;
   }
   const command = positionals[0];
+  if (
+    values['share-with-dsh'] &&
+    (command !== 'review' || !values.draft || values.ai)
+  )
+    throw new DoneGaugeError(
+      '--share-with-dsh requires review --draft ID, without --ai.',
+      'USAGE',
+    );
   if (
     positionals.length !== 1 ||
     !['init', 'check', 'config-hash', 'review'].includes(command ?? '')
@@ -198,6 +209,17 @@ async function main(): Promise<number> {
     process.stdout.write(
       values.json ? renderJson(report) : renderTerminal(report),
     );
+    if (values['share-with-dsh'] && values.draft) {
+      controller.signal.throwIfAborted();
+      await shareResult(root, values.draft, report);
+      process.stderr.write(
+        'Local DSH summary ready. Draft: ' +
+          values.draft +
+          '  Run: ' +
+          report.runId +
+          '\n',
+      );
+    }
     process.stderr.write(
       terminalSafe(`Reports: ${paths.markdown}\n         ${paths.json}\n`),
     );

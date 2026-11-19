@@ -237,5 +237,9 @@ export function apply(ctx: ClientContext): void {
   }
   ctx.slots.inject(slot, () => {
     ctx.slots.register({ name: slot, key: 'donegauge_check' }, DoneGaugeCard);
+    ctx.slots.register(
+      { name: slot, key: 'donegauge_review_run' },
+      DoneGaugeCard,
+    );
   });
 }

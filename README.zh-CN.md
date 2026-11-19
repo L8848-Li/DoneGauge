@@ -68,6 +68,8 @@ node scripts/demo.mjs node-registration --mixed --run
 
 ## 接入 DeepSeek Harness
 
+希望从需求开始，而不是先写配置？在绑定项目的本地 DSH 配置里启用 `guidedReview: true`，把需求原文交给 `donegauge_review`。它先生成草稿；执行要另经宿主单次确认。没有批准通道时，可以在终端继续同一份草稿，只把自己选择分享的结果带回对话。[引导式验收与隐私边界](docs/dsh.md#guided-review)。
+
 DoneGauge 通过 DSH 官方插件接口注册 `donegauge_check`。已验证 **DSH 0.2.2-rc.3 和 0.2.2-rc.4**，需要 Node.js 24.9 或更新版本。可按 [DSH 指南](docs/dsh.md)从源码加载，或安装本地打包产物。[发行指南](docs/release.zh-CN.md)记录市场上架进度。
 
 审阅目标项目的 `donegauge.json` 后，计算该配置的 SHA-256 摘要。

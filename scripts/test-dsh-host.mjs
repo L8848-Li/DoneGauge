@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   realpath,
+  rename,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -32,36 +33,7 @@ const configPath = 'donegauge.junit.json';
 const approval = (await loadConfig(project, configPath)).sha256;
 const resultPath = join(temporary, 'host-result.json');
 const smokePath = join(temporary, 'smoke.mjs');
-await writeFile(
-  smokePath,
-  `
-import { writeFile } from 'node:fs/promises';
-import { setTimeout as delay } from 'node:timers/promises';
-export const name = 'donegauge-host-smoke';
-export const inject = ['tools'];
-export function apply(ctx) {
-  const work = async () => {
-    for (let i=0;i<100;i++) {
-      await delay(50);
-      if (!ctx.tools.get('donegauge_check')) continue;
-      try {
-        const outcome = await ctx.tools.execute({
-          calls: [{ type: 'tool-call', id: 'donegauge-host-smoke', name: 'donegauge_check', arguments: '{}' }],
-          signal: new AbortController().signal,
-        });
-        await writeFile(${JSON.stringify(resultPath)}, JSON.stringify(outcome));
-        return;
-      } catch(error) {
-        if (error.name === 'ToolExecutorUnavailableError') continue;
-        throw error;
-      }
-    }
-    throw new Error('Host tool registration did not become available.');
-  };
-  void work().catch(error => writeFile(${JSON.stringify(resultPath)}, JSON.stringify({ error: error.message })));
-}
-`,
-);
+await cp(join(source, 'scripts/fixtures/dsh-guided-host.mjs'), smokePath);
 const patch = join(temporary, 'host.patch.yml');
 await writeFile(
   patch,
@@ -73,6 +45,7 @@ await writeFile(
 - id: donegauge
   config:
     root: ${JSON.stringify(project)}
+    guidedReview: true
     configPath: ${JSON.stringify(configPath)}
     approvedConfigSha256: ${JSON.stringify(approval)}
 `,
@@ -175,8 +148,53 @@ host.on('error', (error) => {
 const ended = new Promise((resolve) => host.on('close', resolve));
 try {
   let outcome;
+  let cliReport;
   for (let i = 0; i < 300; i++) {
     if (spawnError) throw spawnError;
+    if (!cliReport) {
+      const draftFile = await readFile(
+        join(temporary, 'draft.json'),
+        'utf8',
+      ).catch(() => null);
+      if (draftFile) {
+        const { draft } = JSON.parse(draftFile);
+        const cli = [
+          process.execPath,
+          join(source, 'dist/src/cli.js'),
+          'review',
+          '--draft',
+          draft,
+          '--json',
+        ];
+        const preview = await runCommand(cli, project);
+        assert.equal(preview.exitCode, 0, preview.stderr);
+        const result = await runCommand(
+          [
+            ...cli,
+            '--share-with-dsh',
+            '--approve',
+            JSON.parse(preview.stdout).digest,
+          ],
+          project,
+        );
+        assert.equal(result.exitCode, 1, result.stderr);
+        cliReport = JSON.parse(result.stdout);
+        assert.deepEqual(cliReport.summary, {
+          PASS: 1,
+          FAIL: 0,
+          ERROR: 0,
+          UNVERIFIED: 1,
+        });
+        await writeFile(
+          join(temporary, 'cli-run.tmp'),
+          JSON.stringify({ runId: cliReport.runId }),
+        );
+        await rename(
+          join(temporary, 'cli-run.tmp'),
+          join(temporary, 'cli-run.json'),
+        );
+      }
+    }
     const text = await readFile(resultPath, 'utf8').catch(() => null);
     if (text) {
       outcome = JSON.parse(text);
@@ -191,6 +209,42 @@ try {
   assert.equal(result?.isError, false, JSON.stringify(outcome) + '\n' + log);
   assert.equal(result.value.summary.PASS, 3);
   assert.equal(result.value.finalStatus, 'VERIFIED');
+  assert.equal(outcome.guidance.preview.value.canRequestApproval, false);
+  assert.equal(outcome.guidance.refused.isError, true);
+  assert.match(
+    JSON.stringify(outcome.guidance.refused),
+    /No routable human approval/,
+  );
+  assert.equal(outcome.guidance.handback.value.runId, cliReport.runId);
+  assert.deepEqual(outcome.guidance.handback.value.summary, cliReport.summary);
+  assert.equal(
+    outcome.guidance.native.passed.isError,
+    false,
+    JSON.stringify(outcome.guidance.native.passed),
+  );
+  assert.equal(
+    outcome.guidance.native.passed.value.finalStatus,
+    'VERIFIED',
+    JSON.stringify(outcome.guidance.native),
+  );
+  assert.equal(
+    outcome.guidance.native.failed.isError,
+    false,
+    JSON.stringify(outcome.guidance.native.failed),
+  );
+  assert.equal(outcome.guidance.native.failed.value.summary.FAIL, 1);
+  assert.equal(outcome.guidance.native.denied.isError, true);
+  assert.equal(outcome.guidance.native.cancelled.isError, true);
+  assert.deepEqual(outcome.guidance.native.decisions, [
+    'rejected',
+    'cancelled',
+    'allowed-once',
+    'allowed-once',
+  ]);
+  assert.match(
+    outcome.guidance.handback.value.text,
+    /PASS 1 \/ FAIL 0 \/ UNVERIFIED 1 \/ ERROR 0/,
+  );
   const report = JSON.parse(
     await readFile(join(project, result.value.reports.json), 'utf8'),
   );
@@ -210,7 +264,9 @@ try {
   console.log(
     `DSH ${version.stdout.trim()}: installed ${tarball}, dispatched donegauge_check, and verified 3 named tests with saved JUnit evidence.`,
   );
-  console.log(`Isolated host evidence: ${resultPath}`);
+  console.log(
+    `Verified native guided pass/fail and non-grants with an isolated approval answerer; CLI handback matched one pass and one manual item. Isolated host evidence: ${resultPath}`,
+  );
 } finally {
   host.kill('SIGTERM');
   const force = setTimeout(() => host.kill('SIGKILL'), 2000);
