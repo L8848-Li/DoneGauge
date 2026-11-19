@@ -45,6 +45,8 @@ For non-interactive use, `donegauge review --task 'login after registration; wea
 
 Discovery reads bounded, Git-visible `*.test.*`/`*.spec.*` JS files using `node:test` and `test_*.py`/`*_test.py` files. Python execution uses an already installed pytest (`DONEGAUGE_PYTHON` selects the interpreter). No model, upload, dependency installation or test generation is involved. This is not a sandbox: approved test files and dependencies execute with your local permissions.
 
+**Optional model planning:** `donegauge review --ai --task "..." --json` previews an exact request; it does not send it. Configure a DeepSeek or compatible Chat Completions endpoint and model via your environment. After separate disclosure consent, suggestions are saved in a **new draft**, never executed. See [planner setup, disclosure and evaluation](docs/planner.md).
+
 ## Three-minute JUnit demo
 
 After building the checkout, run three named Node.js tests in a disposable Git

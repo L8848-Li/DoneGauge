@@ -44,6 +44,8 @@ npx --no-install donegauge review --draft <草稿编号> --approve <预览摘要
 
 预览不会运行项目代码、联网或修改 `donegauge.json`。草稿留在 `.donegauge/reviews/`，可用 `--draft` 再次打开。批准会复核草稿和已选测试文件，不锁定测试的所有依赖。发现范围限常见命名的 `node:test` 和 Python 测试；Python 具名验收需要环境中已安装 pytest，可用 `DONEGAUGE_PYTHON` 指定解释器。规则模式无需模型，不会生成新测试。
 
+**可选的 AI 规划：** 配置模型后，运行 `donegauge review --ai --task '注册后能登录，但弱密码应提示原因' --json` 可先查看将发送给谁、包含哪些需求和测试名。只有单独同意发送后才请求模型；建议保存到**新草稿**，不会覆盖原草稿或执行测试。[配置、授权与评测说明](docs/planner.md)。
+
 ## 三分钟 JUnit 演示
 
 构建完成后，在源码目录运行以下命令。脚本会创建临时 Git 项目，按名称运行三条真实的 Node.js 测试。

@@ -117,6 +117,8 @@ export async function runCommand(
   const environment = { ...(options.env ?? process.env) };
   // Independent checks must not inherit the marker of the parent node:test worker.
   delete environment.NODE_TEST_CONTEXT;
+  for (const key of Object.keys(environment))
+    if (key.toUpperCase() === 'DONEGAUGE_PLANNER_KEY') delete environment[key];
   const windows = process.platform === 'win32';
   const batch = windows && /\.(?:cmd|bat)$/i.test(executable);
   if (batch) {

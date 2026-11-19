@@ -7,6 +7,26 @@ import { evaluate } from '../src/core/evaluator.js';
 import { runCommand } from '../src/core/runner.js';
 import { tempDirectory } from './helpers.js';
 
+test('review provider credentials are not inherited by check processes', async (t) => {
+  const result = await runCommand(
+    [
+      process.execPath,
+      '-e',
+      "console.log(Object.keys(process.env).some(key => key.toUpperCase() === 'DONEGAUGE_PLANNER_KEY'))",
+    ],
+    await tempDirectory(t),
+    {
+      env: {
+        ...process.env,
+        DONEGAUGE_PLANNER_KEY: 'private',
+        donegauge_planner_key: 'also-private',
+      },
+    },
+  );
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.stdout.trim(), 'false');
+});
+
 test('runs real assertion with timestamps, exit, command, and log', async (t) => {
   const command = [
     process.execPath,

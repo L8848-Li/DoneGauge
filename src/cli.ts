@@ -20,6 +20,7 @@ const help = `DoneGauge ${version} — Know what's done. See what's verified.
 Usage:
   donegauge init [--cwd DIR] [--config FILE]
   donegauge review [--task TEXT | --draft ID [--approve DIGEST]] [--json]
+  donegauge review --ai [--omit-tests] [--task TEXT | --draft ID [--send DIGEST]] [--json]
   donegauge check [--allow-run] [--json] [--base REF] [--cwd DIR]
   donegauge config-hash [--cwd DIR] [--config FILE]
 
@@ -32,6 +33,9 @@ Options:
   --task TEXT        Local review: separate requirements with semicolons or newlines
   --draft ID         Reopen a local review draft (preview by default)
   --approve DIGEST   Run only the exact review preview identified by this digest
+  --ai               Preview an optional model request (no network by default)
+  --omit-tests       Omit all candidate test names and IDs from the model request
+  --send DIGEST      Send only the previewed model request; never executes tests
   --json             Print JSON to stdout; report file paths go to stderr
   --help             Show help
   --version          Show version
@@ -49,6 +53,9 @@ function argumentsFromCli() {
         task: { type: 'string' },
         draft: { type: 'string' },
         approve: { type: 'string' },
+        ai: { type: 'boolean' },
+        'omit-tests': { type: 'boolean' },
+        send: { type: 'string' },
         base: { type: 'string' },
         'output-dir': { type: 'string' },
         'allow-run': { type: 'boolean' },
@@ -89,12 +96,17 @@ async function main(): Promise<number> {
   }
   if (
     command !== 'review' &&
-    [values.task, values.draft, values.approve].some(
-      (value) => value !== undefined,
-    )
+    [
+      values.task,
+      values.draft,
+      values.approve,
+      values.ai,
+      values.send,
+      values['omit-tests'],
+    ].some((value) => value !== undefined)
   )
     throw new DoneGaugeError(
-      '--task, --draft and --approve are only supported by review.',
+      'Planning and draft options are only supported by review.',
       'USAGE',
     );
   if (

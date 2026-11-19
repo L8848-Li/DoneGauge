@@ -8,10 +8,13 @@ import { discoverTests, type Candidate } from './discovery.js';
 export interface ReviewPlan {
   planVersion: 1;
   task: string;
+  proposal?: { parent: string; model: string; question: string | null };
   items: {
     description: string;
     candidateId: string | null;
     excluded: boolean;
+    locked?: true;
+    basis?: { source: string; reason: string };
   }[];
 }
 
@@ -60,7 +63,7 @@ export function parsePlan(text: string): ReviewPlan {
   if (
     !data ||
     Object.keys(data).some(
-      (key) => !['planVersion', 'task', 'items'].includes(key),
+      (key) => !['planVersion', 'task', 'items', 'proposal'].includes(key),
     ) ||
     data.planVersion !== 1 ||
     !nonempty(data.task, 500) ||
@@ -71,12 +74,40 @@ export function parsePlan(text: string): ReviewPlan {
     return invalid(
       'Invalid review draft. Regenerate it with donegauge review --task.',
     );
+  if (data.proposal !== undefined) {
+    const meta = data.proposal;
+    if (
+      !meta ||
+      Object.keys(meta).some(
+        (key) => !['parent', 'model', 'question'].includes(key),
+      ) ||
+      !nonempty(meta.parent, 36) ||
+      !nonempty(meta.model, 160) ||
+      (meta.question !== null && !nonempty(meta.question, 500))
+    )
+      return invalid('Invalid review proposal metadata.');
+  }
   for (const item of data.items) {
     if (
       !item ||
       Object.keys(item).some(
-        (key) => !['description', 'candidateId', 'excluded'].includes(key),
+        (key) =>
+          ![
+            'description',
+            'candidateId',
+            'excluded',
+            'locked',
+            'basis',
+          ].includes(key),
       ) ||
+      (item.locked !== undefined && item.locked !== true) ||
+      (item.basis !== undefined &&
+        (!item.basis ||
+          Object.keys(item.basis).some(
+            (key) => !['source', 'reason'].includes(key),
+          ) ||
+          !nonempty(item.basis.source, 1900) ||
+          !nonempty(item.basis.reason, 500))) ||
       !nonempty(item.description, 1900) ||
       typeof item.excluded !== 'boolean' ||
       (item.candidateId !== null &&

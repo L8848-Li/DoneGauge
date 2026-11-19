@@ -88,10 +88,12 @@ export function configWith(command?: string[]): AcceptanceConfig {
 export async function runCli(
   root: string,
   args: string[],
+  env?: NodeJS.ProcessEnv,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   try {
     const r = await exec(process.execPath, [cli, ...args], {
       cwd: root,
+      ...(env ? { env } : {}),
       maxBuffer: 10 * 1024 * 1024,
     });
     return { code: 0, ...r };
