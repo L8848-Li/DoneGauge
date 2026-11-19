@@ -31,6 +31,19 @@ npm install --save-dev /path/to/DoneGauge/donegauge-0.1.0.tgz
 npx --no-install donegauge --version
 ```
 
+## 不写配置，从需求开始
+
+在要验收的 Git 项目中运行 `npx --no-install donegauge review`，用分号分隔需求。例如在注册示例中输入「邮箱不能重复；注册后可以登录；弱密码有清晰提示」。本地规则会列出可能相关的具名测试和文件位置；关键词相似只作为建议，不会自动绑定或运行。输入 `edit` 可按编号选测试、修改或新增需求、标记人工核对或排除；回车保存退出，输入 `run` 才确认执行。没有证据或排除的条目仍为 `UNVERIFIED`。
+
+没有交互终端时，先生成预览，再使用预览给出的编号和摘要运行：
+
+```sh
+npx --no-install donegauge review --task 'duplicate email is rejected; 弱密码提示' --json
+npx --no-install donegauge review --draft <草稿编号> --approve <预览摘要> --json
+```
+
+预览不会运行项目代码、联网或修改 `donegauge.json`。草稿留在 `.donegauge/reviews/`，可用 `--draft` 再次打开。批准会复核草稿和已选测试文件，不锁定测试的所有依赖。发现范围限常见命名的 `node:test` 和 Python 测试；Python 具名验收需要环境中已安装 pytest，可用 `DONEGAUGE_PYTHON` 指定解释器。规则模式无需模型，不会生成新测试。
+
 ## 三分钟 JUnit 演示
 
 构建完成后，在源码目录运行以下命令。脚本会创建临时 Git 项目，按名称运行三条真实的 Node.js 测试。
@@ -144,7 +157,7 @@ JUnit 的 PASS 还要求本次报告完整、目标测试唯一匹配且实际�
 ## 已知限制
 
 - 检查是否足以证明验收条件，由用户负责。退出码 0 仅证明命令约定满足；建议添加明确输出或测试数量预期，避免把空跑当作充分验证。
-- JUnit 支持精确名称和可选类名，每个条件独立命令；尚无自动发现或生成测试、失败到源码定位、重试编排和评分。
+- JUnit 支持精确名称和可选类名，每个条件独立命令；`review` 只静态发现字面量测试名，不保证识别动态、参数化或多行声明，不生成测试、定位产品根因或自动重试。
 - 检查顺序执行；前后 Git 指纹不是原子快照或签名证明。忽略文件及子模块内部未提交内容不被完整追踪。
 - 默认每条命令保留 64 KiB 输出，Git 差异展示上限 256 KiB；文件元数据超限会停止采集，不会静默漏掉文件。
 - 重命名按删除和新增显示；不自动拉取远程仓库或选择任务基准。
@@ -152,6 +165,8 @@ JUnit 的 PASS 还要求本次报告完整、目标测试唯一匹配且实际�
 - DSH 检查使用宿主用户权限。启用前请了解[执行和授权细节](docs/dsh.md#returned-result-and-execution-permission)。
 
 ## 开发与路线图
+
+[下一阶段产品需求与优化计划](docs/product-requirements.zh-CN.md)：从自然语言需求、可编辑计划和一次执行确认，到可追溯的验收报告。此文是设计提案，不是已发布功能说明。
 
 ```sh
 python3 -m pip install -r tests/requirements.txt # 建议使用虚拟环境

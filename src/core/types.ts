@@ -114,6 +114,8 @@ export interface ExecutionEvidence {
   stdoutBytes: number;
   stderrBytes: number;
   outputTruncated: boolean;
+  stdoutTruncated?: boolean;
+  stderrTruncated?: boolean;
   stdoutSha256: string;
   stderrSha256: string;
   error: string | null;

@@ -173,6 +173,28 @@ try {
   );
   assert.equal(junitReport.finalStatus, 'VERIFIED');
   assert.equal(junitReport.summary.PASS, 3);
+  const draft = JSON.parse(
+    await installedCli([
+      'review',
+      '--task',
+      'login after registration',
+      '--json',
+    ]),
+  );
+  assert.equal(draft.kind, 'review-preview');
+  assert.equal(draft.runnable, 1);
+  const guidedReport = JSON.parse(
+    await installedCli([
+      'review',
+      '--draft',
+      draft.draft,
+      '--approve',
+      draft.digest,
+      '--json',
+    ]),
+  );
+  assert.equal(guidedReport.finalStatus, 'VERIFIED');
+  assert.equal(guidedReport.criteria[0].testEvidence.counts.executedTargets, 1);
   for (const criterion of junitReport.criteria) {
     assert.equal(criterion.testEvidence.counts.executedTargets, 1);
     assert.equal(criterion.testEvidence.executionId, criterion.evidence.id);
@@ -198,7 +220,7 @@ try {
   assert.equal(python.summary.PASS, 2);
   assert.equal(python.finalStatus, 'VERIFIED');
   console.log(
-    `Package install smoke passed: ${tarball ? `${tarball} (${(await stat(tarball)).size} bytes)` : `${name}@${version} from npm`}, 3 Node command + 3 Node JUnit + 2 Python checks.`,
+    `Package install smoke passed: ${tarball ? `${tarball} (${(await stat(tarball)).size} bytes)` : `${name}@${version} from npm`}, 1 guided review + 3 Node command + 3 Node JUnit + 2 Python checks.`,
   );
 } finally {
   await rm(temporary, { recursive: true, force: true });

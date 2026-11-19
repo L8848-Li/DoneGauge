@@ -106,6 +106,14 @@ for (const [name, xml] of [
     '<testsuite><testcase name="x" status="passed"><failure/></testcase></testsuite>',
   ],
   [
+    'contradictory mixed-case passed status',
+    '<testsuite><testcase name="x" status="Passed"><failure/></testcase></testsuite>',
+  ],
+  [
+    'sibling count mismatch despite correct parent totals',
+    '<testsuites tests="2" failures="1"><testsuite><testcase name="a"><failure/></testcase></testsuite><testsuite failures="1"><testcase name="b"/></testsuite></testsuites>',
+  ],
+  [
     'orphan failure attribute',
     '<testsuite><testcase name="x" failure="failed"/></testsuite>',
   ],

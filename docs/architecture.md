@@ -74,7 +74,7 @@ Windows can terminate only the immediate process in V0.1; Windows is not a verif
 platform for this release. Background daemons are unsuitable acceptance commands.
 
 Working-tree fingerprints detect before/after changes, including hashed untracked
-contents and the complete streamed tracked diff even when the displayed diff is
+contents, staged blob changes, and the complete streamed tracked diff even when the displayed diff is
 capped. They are not an atomic filesystem snapshot or a cryptographic attestation.
 Ignored files, dirty contents inside submodules, changes reverted between snapshots,
 and adversarial concurrent writes require independent controls.

@@ -84,6 +84,23 @@ test('fingerprint detects untracked binary content edits', async (t) => {
   assert.match(after.diff, /GIT binary patch/);
 });
 
+test('fingerprint detects a different staged blob behind the same working-tree diff', async (t) => {
+  const root = await newRepo(t);
+  const path = join(root, 'tracked.txt');
+  const stageBehindWorkingTree = async (content: string) => {
+    await writeFile(path, content);
+    await execGit(root, ['add', '--', 'tracked.txt']);
+    await writeFile(path, 'unchanged working copy\n');
+    return collectChanges(root);
+  };
+  const first = await stageBehindWorkingTree('first staged version\n');
+  const second = await stageBehindWorkingTree('second staged version\n');
+  assert.deepEqual(second.files, first.files);
+  assert.equal(second.diff, first.diff);
+  assert.notEqual(second.fingerprint, first.fingerprint);
+  assert.equal((await collectChanges(root)).fingerprint, second.fingerprint);
+});
+
 test('Git never invokes configured external diff programs', async (t) => {
   const root = await newRepo(t);
   await execGit(root, [

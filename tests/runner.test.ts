@@ -197,6 +197,29 @@ test('missing expected text in complete output is FAIL', async (t) => {
   );
 });
 
+test('a missing token in a complete stream is conclusive even when the other stream is truncated', async (t) => {
+  const root = await tempDirectory(t);
+  const command = [
+    process.execPath,
+    '-e',
+    "process.stdout.write('x'.repeat(1024))",
+  ];
+  const result = await runCommand(command, root, { maxOutputBytes: 256 });
+  assert.equal(result.stdoutTruncated, true);
+  assert.equal(result.stderrTruncated, false);
+  const check = {
+    command,
+    expect: { stdoutIncludes: 'tail', stderrIncludes: 'error' },
+  };
+  const verdict = evaluate(check, result);
+  assert.equal(verdict.status, 'FAIL');
+  assert.match(verdict.reason, /stderr/);
+  const legacy = { ...result };
+  delete legacy.stdoutTruncated;
+  delete legacy.stderrTruncated;
+  assert.equal(evaluate(check, legacy).status, 'UNVERIFIED');
+});
+
 test('shell operators passed as arguments stay literal', async (t) => {
   const root = await tempDirectory(t);
   const literal = '$(touch injected); touch injected && echo bad';

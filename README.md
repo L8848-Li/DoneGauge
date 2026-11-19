@@ -37,6 +37,14 @@ npm install --save-dev /path/to/DoneGauge/donegauge-0.1.0.tgz
 npx --no-install donegauge --version
 ```
 
+## Start with a requirement, not a config file
+
+Run `npx --no-install donegauge review` in a trusted Git project. Enter requirements separated by semicolons, inspect discovered test names, file locations and commands, and type `edit` to add or change an item, select another test or leave it for manual review. Press Enter to save without testing or type `run` to approve the displayed plan. Only unique normalized test-name matches are preselected; keyword matches are suggestions, not coverage.
+
+For non-interactive use, `donegauge review --task 'login after registration; weak password feedback' --json` returns a local draft ID and digest without running any tests. Reopen with `--draft ID` or run the reviewed plan with `--draft ID --approve DIGEST`. Changes to the draft or selected test files invalidate the digest. Unbound and excluded requirements stay `UNVERIFIED`. Drafts live under `.donegauge/reviews/`; existing configuration is never overwritten.
+
+Discovery reads bounded, Git-visible `*.test.*`/`*.spec.*` JS files using `node:test` and `test_*.py`/`*_test.py` files. Python execution uses an already installed pytest (`DONEGAUGE_PYTHON` selects the interpreter). No model, upload, dependency installation or test generation is involved. This is not a sandbox: approved test files and dependencies execute with your local permissions.
+
 ## Three-minute JUnit demo
 
 After building the checkout, run three named Node.js tests in a disposable Git
@@ -200,7 +208,7 @@ evidence.
   only the declared process contract. It cannot prove test quality or coverage.
   Prefer specific output/test-count expectations to detect empty test runs.
 - JUnit supports exact names and optional class names, one report and command per
-  criterion. No automatic test discovery/generation, failure-to-source mapping,
+  criterion. Static review discovery can miss dynamic tests. No test generation, failure-to-source mapping,
   cross-criterion cache, retry orchestration, or score.
 - Tests run sequentially and can modify local files. Before/after fingerprints
   flag observed changes but are not atomic snapshots or signed attestations.

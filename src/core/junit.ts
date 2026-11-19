@@ -12,6 +12,13 @@ export const JUNIT_LIMITS = {
   cases: 50_000,
 };
 
+export function expandEvidenceDirectory(
+  value: string,
+  directory: string,
+): string {
+  return value.replaceAll('{evidenceDir}', () => directory);
+}
+
 // SAX never fetches external resources. Reject all DTD/SGML declarations and
 // restrict entities to XML's five built-ins rather than SAX's HTML entity set.
 export function parseJunit(xml: string): {
@@ -37,10 +44,11 @@ export function parseJunit(xml: string): {
   parser.onerror = (error) => {
     throw error;
   };
+  const totals = { tests: 0, failures: 0, errors: 0, skipped: 0 };
   type Frame = {
     tag: string;
     attrs: Record<string, string>;
-    start: number;
+    suiteStart?: typeof totals;
     test?: TestCaseEvidence;
     detail?: TestCaseEvidence['details'][number];
   };
@@ -95,8 +103,9 @@ export function parseJunit(xml: string): {
       problems.add('Unsupported retry/flaky evidence requires review.');
     if (!parent && !['testsuite', 'testsuites'].includes(tag.name))
       throw new Error('JUnit root must be testsuite or testsuites.');
-    const frame: Frame = { tag: tag.name, attrs, start: cases.length };
+    const frame: Frame = { tag: tag.name, attrs };
     if (['testsuite', 'testsuites'].includes(tag.name)) {
+      frame.suiteStart = { ...totals };
       numeric(attrs.time, 'suite time');
       if (
         attrs.status &&
@@ -229,21 +238,21 @@ export function parseJunit(xml: string): {
     if (!frame) throw new Error('Invalid JUnit nesting.');
     if (frame.test) {
       if (
-        (frame.attrs.status === 'passed' && frame.test.outcome !== 'passed') ||
+        (frame.attrs.status?.toLowerCase() === 'passed' &&
+          frame.test.outcome !== 'passed') ||
         (frame.attrs.failure &&
           !frame.test.details.some((d) => d.kind === 'failure'))
       )
         throw new Error('Contradictory JUnit testcase status and outcome.');
       cases.push(frame.test);
+      totals.tests++;
+      if (frame.test.outcome === 'failed') totals.failures++;
+      else if (frame.test.outcome === 'error') totals.errors++;
+      else if (frame.test.outcome === 'skipped') totals.skipped++;
     }
-    if (['testsuite', 'testsuites'].includes(frame.tag)) {
-      const subset = cases.slice(frame.start);
-      for (const [key, actual] of [
-        ['tests', subset.length],
-        ['failures', subset.filter((c) => c.outcome === 'failed').length],
-        ['errors', subset.filter((c) => c.outcome === 'error').length],
-        ['skipped', subset.filter((c) => c.outcome === 'skipped').length],
-      ] as const) {
+    if (frame.suiteStart) {
+      for (const key of ['tests', 'failures', 'errors', 'skipped'] as const) {
+        const actual = totals[key] - frame.suiteStart[key];
         const declared = numeric(frame.attrs[key], key, true);
         if (declared !== null && declared !== actual)
           throw new Error(
@@ -316,7 +325,7 @@ export async function readJunitEvidence(
   evidence: Awaited<ReturnType<typeof createEvidenceDirectory>>,
   file: string,
 ): Promise<{ path: string; bytes: number; sha256: string; data: Buffer }> {
-  const target = resolve(file.replaceAll('{evidenceDir}', evidence.directory));
+  const target = resolve(expandEvidenceDirectory(file, evidence.directory));
   if (target === evidence.directory || !isWithin(evidence.directory, target))
     throw new Error(
       'JUnit report must stay inside this execution evidence directory.',

@@ -7,6 +7,7 @@ import { isWithin, loadConfig } from './core/config.js';
 import { DoneGaugeError, errorMessage } from './core/errors.js';
 import { repositoryRoot } from './core/git.js';
 import { version } from './core/version.js';
+import { review } from './review/cli.js';
 import {
   renderJson,
   renderTerminal,
@@ -18,6 +19,7 @@ const help = `DoneGauge ${version} — Know what's done. See what's verified.
 
 Usage:
   donegauge init [--cwd DIR] [--config FILE]
+  donegauge review [--task TEXT | --draft ID [--approve DIGEST]] [--json]
   donegauge check [--allow-run] [--json] [--base REF] [--cwd DIR]
   donegauge config-hash [--cwd DIR] [--config FILE]
 
@@ -27,6 +29,9 @@ Options:
   --base REF         Compare working tree to this commit/ref (default: HEAD)
   --output-dir PATH  New reports inside this project (default: .donegauge)
   --allow-run        Explicitly authorize configured commands for this run
+  --task TEXT        Local review: separate requirements with semicolons or newlines
+  --draft ID         Reopen a local review draft (preview by default)
+  --approve DIGEST   Run only the exact review preview identified by this digest
   --json             Print JSON to stdout; report file paths go to stderr
   --help             Show help
   --version          Show version
@@ -41,6 +46,9 @@ function argumentsFromCli() {
       options: {
         cwd: { type: 'string' },
         config: { type: 'string' },
+        task: { type: 'string' },
+        draft: { type: 'string' },
+        approve: { type: 'string' },
         base: { type: 'string' },
         'output-dir': { type: 'string' },
         'allow-run': { type: 'boolean' },
@@ -72,13 +80,31 @@ async function main(): Promise<number> {
   const command = positionals[0];
   if (
     positionals.length !== 1 ||
-    !['init', 'check', 'config-hash'].includes(command ?? '')
+    !['init', 'check', 'config-hash', 'review'].includes(command ?? '')
   ) {
     throw new DoneGaugeError(
       'Unknown command or extra arguments. Run donegauge --help.',
       'USAGE',
     );
   }
+  if (
+    command !== 'review' &&
+    [values.task, values.draft, values.approve].some(
+      (value) => value !== undefined,
+    )
+  )
+    throw new DoneGaugeError(
+      '--task, --draft and --approve are only supported by review.',
+      'USAGE',
+    );
+  if (
+    command === 'review' &&
+    ['allow-run', 'config', 'base', 'output-dir'].some((key) => key in values)
+  )
+    throw new DoneGaugeError(
+      'Review uses its own local draft, HEAD and private report directory. Use --draft ID --approve DIGEST to run.',
+      'USAGE',
+    );
   const cwd = resolve(values.cwd ?? process.cwd());
   const configPath = values.config ?? 'donegauge.json';
   if (command === 'init') {
@@ -139,10 +165,16 @@ async function main(): Promise<number> {
       process.stdout.write((await loadConfig(root, configPath)).sha256 + '\n');
       return 0;
     }
+    const approved =
+      command === 'review'
+        ? await review(root, values, controller.signal)
+        : null;
+    if (command === 'review' && !approved) return 0;
     const report = await checkAcceptance({
       cwd: root,
       configPath,
-      execute: values['allow-run'] ?? false,
+      ...(approved ?? {}),
+      execute: Boolean(approved || values['allow-run']),
       signal: controller.signal,
       ...(values.base !== undefined ? { base: values.base } : {}),
     });

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { checkAcceptance } from '../src/core/check.js';
 import { parseConfig, sha256 } from '../src/core/config.js';
@@ -204,6 +204,25 @@ def test_setup(broken):
     assert.equal(result.status, status, JSON.stringify(result));
     assert.equal(result.testEvidence?.cases[0]?.className, 'test_target');
   });
+
+test('JUnit argv and report paths preserve literal dollar sequences in the repository name', async (t) => {
+  const fixture = await newRepo(t);
+  const root = join(await tempDirectory(t), 'project $& $$');
+  await rename(fixture, root);
+  await writeFile(join(root, 'target.test.mjs'), source);
+  await saveConfig(
+    root,
+    junitConfig(nodeCommand('target.test.mjs', '^target passes$'), [
+      'target passes',
+    ]),
+  );
+  const report = await checkAcceptance({ cwd: root, execute: true });
+  assert.equal(report.finalStatus, 'VERIFIED', JSON.stringify(report.criteria));
+  assert.match(
+    report.criteria[0]!.testEvidence!.source.path,
+    /^\.donegauge\/evidence\//,
+  );
+});
 
 test('preview and approval mismatch never allocate JUnit evidence or start a command', async (t) => {
   const root = await newRepo(t);

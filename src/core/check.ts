@@ -9,10 +9,11 @@ import { collectChanges, repositoryRoot } from './git.js';
 import { runCommand } from './runner.js';
 import {
   createEvidenceDirectory,
+  expandEvidenceDirectory,
   parseJunit,
   readJunitEvidence,
 } from './junit.js';
-import { evaluateJunit } from './junit-evaluator.js';
+import { evaluateJunit, selectJunitTests } from './junit-evaluator.js';
 import { version } from './version.js';
 import type {
   AcceptanceReport,
@@ -89,7 +90,7 @@ export async function checkAcceptance(
     try {
       const command = junitDirectory
         ? check.command.map((arg) =>
-            arg.replaceAll('{evidenceDir}', junitDirectory.directory),
+            expandEvidenceDirectory(arg, junitDirectory.directory),
           )
         : check.command;
       const evidence = await runCommand(command, cwd, {
@@ -118,8 +119,8 @@ export async function checkAcceptance(
           source: {
             path: relative(
               root,
-              check.junit.file.replaceAll(
-                '{evidenceDir}',
+              expandEvidenceDirectory(
+                check.junit.file,
                 junitDirectory.directory,
               ),
             )
@@ -159,34 +160,9 @@ export async function checkAcceptance(
           );
           testEvidence.cases = parsed.cases;
           testEvidence.problems = parsed.problems;
-          testEvidence.selections = check.junit.tests.map((selector) => ({
-            selector,
-            matches: parsed.cases.flatMap((item, index) =>
-              item.name === selector.name &&
-              (selector.className === undefined ||
-                item.className === selector.className)
-                ? [index]
-                : [],
-            ),
-          }));
-          const matched = new Set(
-            testEvidence.selections.flatMap((s) =>
-              s.matches.length === 1 ? s.matches : [],
-            ),
-          );
-          const executed = (index: number): boolean =>
-            ['passed', 'failed', 'error'].includes(
-              parsed.cases[index]!.outcome,
-            );
-          testEvidence.counts = {
-            total: parsed.cases.length,
-            executed: parsed.cases.filter((_, index) => executed(index)).length,
-            targets: check.junit.tests.length,
-            matched: testEvidence.selections.filter(
-              (s) => s.matches.length === 1,
-            ).length,
-            executedTargets: [...matched].filter(executed).length,
-          };
+          const selection = selectJunitTests(parsed.cases, check.junit.tests);
+          testEvidence.selections = selection.selections;
+          testEvidence.counts = selection.counts;
         } catch (error) {
           testEvidence.error = `Cannot collect complete JUnit evidence: ${errorMessage(error)}`;
         }

@@ -91,12 +91,14 @@ export function parseNameStatus(text: string): ChangedFile[] {
 function workingStatus(text: string): {
   untracked: string[];
   unmerged: string[];
+  hasStagedChanges: boolean;
   fingerprint: string;
 } {
   const tokens = text.split('\0');
   const untracked: string[] = [];
   const unmerged: string[] = [];
   const entries: string[] = [];
+  let hasStagedChanges = false;
   for (let i = 0; i < tokens.length; i++) {
     const entry = tokens[i];
     if (!entry) continue;
@@ -108,12 +110,18 @@ function workingStatus(text: string): {
     )
       continue;
     entries.push(entry);
+    if (code[0] !== ' ' && code !== '??') hasStagedChanges = true;
     if (code === '??') untracked.push(path);
     if (unmergedStatusCodes.has(code)) unmerged.push(path);
     if (code.includes('R') || code.includes('C'))
       entries.push(tokens[++i] ?? '');
   }
-  return { untracked, unmerged, fingerprint: entries.join('\0') };
+  return {
+    untracked,
+    unmerged,
+    hasStagedChanges,
+    fingerprint: entries.join('\0'),
+  };
 }
 
 async function untrackedHash(
@@ -215,6 +223,15 @@ export async function collectChanges(
     .update(headCommit ?? '')
     .update(working.fingerprint)
     .update(diffResult.stdoutSha256);
+  if (working.hasStagedChanges) {
+    const staged = await git(
+      root,
+      [...diffArgs, '--cached', '--raw', '--no-abbrev', '-z', diffBase, '--'],
+      signal,
+    );
+    requireGit(staged, 'Could not fingerprint staged changes.', true);
+    fingerprint.update(staged.stdoutSha256);
+  }
   for (const path of untracked) {
     signal?.throwIfAborted();
     files.push({ path, status: 'added', untracked: true });

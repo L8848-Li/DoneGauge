@@ -71,7 +71,8 @@ export async function runCommand(
   const stderrHash = createHash('sha256');
   let stdoutBytes = 0;
   let stderrBytes = 0;
-  let capturedBytes = 0;
+  let capturedStdout = 0;
+  let capturedStderr = 0;
   let state: ExecutionEvidence['state'] = 'exited';
   let error: string | null = null;
   let exitCode: number | null = null;
@@ -92,7 +93,10 @@ export async function runCommand(
     stderr: Buffer.concat(stderr).toString('utf8'),
     stdoutBytes,
     stderrBytes,
-    outputTruncated: stdoutBytes + stderrBytes > limit,
+    outputTruncated:
+      stdoutBytes > capturedStdout || stderrBytes > capturedStderr,
+    stdoutTruncated: stdoutBytes > capturedStdout,
+    stderrTruncated: stderrBytes > capturedStderr,
     error,
     stdoutSha256: stdoutHash.digest('hex'),
     stderrSha256: stderrHash.digest('hex'),
@@ -207,21 +211,21 @@ export async function runCommand(
     options.signal?.addEventListener('abort', onAbort, { once: true });
     // Close the race between the pre-spawn check and listener registration.
     if (options.signal?.aborted) onAbort();
-    const capture = (data: Buffer, target: Buffer[]): void => {
-      const remaining = Math.max(0, limit - capturedBytes);
+    const capture = (data: Buffer, target: Buffer[]): number => {
+      const remaining = Math.max(0, limit - capturedStdout - capturedStderr);
       const piece = data.subarray(0, remaining);
       if (piece.length) target.push(Buffer.from(piece));
-      capturedBytes += piece.length;
+      return piece.length;
     };
     child.stdout.on('data', (data: Buffer) => {
       stdoutBytes += data.length;
       stdoutHash.update(data);
-      capture(data, stdout);
+      capturedStdout += capture(data, stdout);
     });
     child.stderr.on('data', (data: Buffer) => {
       stderrBytes += data.length;
       stderrHash.update(data);
-      capture(data, stderr);
+      capturedStderr += capture(data, stderr);
     });
     child.on('error', onSpawnError);
     child.on('close', (code, signal) => {

@@ -102,7 +102,10 @@ The JSON contract has `reportVersion: 1`, tool version, task/run/config identity
 Git baseline and changed files/diff/fingerprint, run times, one result per criterion,
 evidence or `null`, summary counts, warnings, and a final status. Evidence retains
 the exact command, cwd, execution state, exit/signal, timing, logs, truncation flag,
-and original byte counts. JSON retains raw output; terminal/Markdown remove control
+and original byte counts. `stdoutTruncated` and `stderrTruncated` identify which
+stream lost bytes; `outputTruncated` remains the combined flag. Missing expected
+text in a complete stream is a FAIL even if the other stream was truncated.
+JSON retains raw output; terminal/Markdown remove control
 sequences, and Markdown fences prevent log text from becoming document markup.
 
 | Exit      | Meaning                                                                            |
