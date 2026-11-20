@@ -9,7 +9,9 @@ Current hosted CI results are available on the [repository Actions page](https:/
 
 ### Guided DSH milestone (2026-11-19)
 
-On 2026-11-20, an operator used DSH Desktop 0.2.2-rc.3 with the user's configured BUPT model against the Node registration example. The model called `donegauge_review` and showed one bound login test and one unverified weak-password requirement. The native approval dialog revealed that the proposed command used the Electron desktop executable as Node; the operator denied the run, and no tests were started. Discovery now proposes `node` when hosted by Electron. This record does not claim that the corrected package was tested in the Desktop interface until a new run is actually observed.
+On 2026-11-20, an operator used DSH Desktop 0.2.2-rc.3 with the user's configured BUPT model against the Node registration example. The model called `donegauge_review` and showed one bound login test and one unverified weak-password requirement. The native approval dialog revealed that the proposed command used the Electron desktop executable as Node; the operator denied the run, and no tests were started. Discovery now proposes `node` when hosted by Electron.
+
+After installing the corrected local package, the operator reopened the same draft in Desktop and saw a new revision. The native approval dialog displayed `node --test` for the selected login test. After the operator allowed that run once, the Desktop card showed **PASS 1, UNVERIFIED 1, FAIL 0, ERROR 0** and `REVIEW REQUIRED`. The expanded PASS entry displayed its execution ID and the passing JUnit target. The saved JSON matched the card: the process exited 0, one selected test executed, the weak-password criterion had no evidence, and the workspace fingerprint did not change. The Markdown and JSON report paths were displayed in the card. The user-authorized test directory was not committed or reset. This is one operator walkthrough, not a five-person usability study.
 
 On macOS arm64 / Node 24.16.0, the local tarball was installed in isolated **DSH 0.2.2-rc.3 and 0.2.2-rc.4** profiles. Each host dispatched through the native executor with no model or paid account:
 
