@@ -9,6 +9,8 @@ Current hosted CI results are available on the [repository Actions page](https:/
 
 ### Guided DSH milestone (2026-11-19)
 
+On 2026-11-20, an operator used DSH Desktop 0.2.2-rc.3 with the user's configured BUPT model against the Node registration example. The model called `donegauge_review` and showed one bound login test and one unverified weak-password requirement. The native approval dialog revealed that the proposed command used the Electron desktop executable as Node; the operator denied the run, and no tests were started. Discovery now proposes `node` when hosted by Electron. This record does not claim that the corrected package was tested in the Desktop interface until a new run is actually observed.
+
 On macOS arm64 / Node 24.16.0, the local tarball was installed in isolated **DSH 0.2.2-rc.3 and 0.2.2-rc.4** profiles. Each host dispatched through the native executor with no model or paid account:
 
 - In an open test session, the real approval service received an exact-plan request. An isolated test answerer rejected once, cancelled once, then granted two separate runs. The positive registration assertion returned VERIFIED; the intentionally regressed login returned one FAIL. This exercised host decisions, not a human clicking a Desktop dialog.

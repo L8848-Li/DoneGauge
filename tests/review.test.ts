@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import type { AcceptanceReport } from '../src/core/types.js';
 import type { Candidate } from '../src/review/discovery.js';
+import { discoverTests } from '../src/review/discovery.js';
 import { newRepo, runCli } from './helpers.js';
 
 interface Preview {
@@ -42,6 +43,32 @@ const runApproved = (root: string, draft: Preview) =>
     draft.digest,
     '--json',
   ]);
+
+test('Electron-hosted discovery proposes Node rather than the desktop executable', async (t) => {
+  const root = await newRepo(t, 'node-registration');
+  const descriptor = Object.getOwnPropertyDescriptor(
+    process.versions,
+    'electron',
+  );
+  Object.defineProperty(process.versions, 'electron', {
+    value: 'test',
+    configurable: true,
+  });
+  try {
+    const { candidates } = await discoverTests(
+      root,
+      new AbortController().signal,
+    );
+    assert.ok(candidates.length > 0);
+    assert.ok(
+      candidates.every((candidate) => candidate.check.command[0] === 'node'),
+    );
+  } finally {
+    if (descriptor)
+      Object.defineProperty(process.versions, 'electron', descriptor);
+    else Reflect.deleteProperty(process.versions, 'electron');
+  }
+});
 
 test('local Node review: preview only, bilingual hints stay unverified, approval produces real evidence', async (t) => {
   const root = await newRepo(t, 'node-registration');

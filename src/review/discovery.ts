@@ -140,7 +140,7 @@ export async function discoverTests(root: string, signal: AbortSignal) {
             target,
           ]
         : [
-            process.execPath,
+            process.versions.electron ? 'node' : process.execPath,
             '--test',
             '--test-reporter=junit',
             `--test-reporter-destination=${xml}`,
